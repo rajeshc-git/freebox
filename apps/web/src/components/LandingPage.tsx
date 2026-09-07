@@ -376,6 +376,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
             Stored exclusively inside your personal Telegram account space with zero third-party profiling or data mining.
           </p>
         </div>
+
+        <div className="feature-card">
+          <div style={{ width: 44, height: 44, borderRadius: 12, background: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.25rem', fontWeight: 800, fontSize: '1.15rem' }}>
+            ₹0
+          </div>
+          <h3 style={{ fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.5rem' }}>Zero Storage Fees</h3>
+          <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', lineHeight: 1.55 }}>
+            No monthly billing, no surprise invoices, and no tier upgrades required.
+          </p>
+        </div>
       </section>
 
       {/* Comparison Table with Horizontal Scroll on Mobile */}
