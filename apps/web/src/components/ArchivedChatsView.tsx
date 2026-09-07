@@ -22,6 +22,7 @@ import {
   Layers,
   AlertCircle,
   Loader2,
+  Mic,
 } from 'lucide-react';
 import { TelegramArchivedChat, TelegramChatMedia } from '../types';
 import { api } from '../services/api';
@@ -31,7 +32,7 @@ interface ArchivedChatsViewProps {
   onBackToDrive?: () => void;
 }
 
-type MediaCategory = 'all' | 'image' | 'video' | 'document' | 'audio';
+type TelegramMediaTab = 'media' | 'files' | 'voice';
 
 export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
   // State
@@ -39,7 +40,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
   const [selectedChat, setSelectedChat] = useState<TelegramArchivedChat | null>(null);
   const [chatSearch, setChatSearch] = useState('');
   const [mediaSearch, setMediaSearch] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<MediaCategory>('all');
+  const [activeTab, setActiveTab] = useState<TelegramMediaTab>('media');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const [loadingChats, setLoadingChats] = useState(true);
@@ -47,6 +48,14 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [nextOffsetId, setNextOffsetId] = useState<number | null>(null);
+
+  const [chatStats, setChatStats] = useState<{
+    photos: number;
+    videos: number;
+    media: number;
+    files: number;
+    voice: number;
+  } | null>(null);
 
   const [mediaList, setMediaList] = useState<TelegramChatMedia[]>([]);
   const [activeMediaIndex, setActiveMediaIndex] = useState<number | null>(null);
@@ -98,9 +107,19 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
     fetchArchivedChats();
   }, [fetchArchivedChats]);
 
-  // Fetch media for selected chat (initial load or tab change)
+  // Fetch chat stats (photos, videos, files, voice counts)
+  const fetchStats = useCallback(async (chatId: string) => {
+    try {
+      const stats = await api.getChatStats(chatId);
+      setChatStats(stats);
+    } catch (err) {
+      console.error('Failed to load chat stats:', err);
+    }
+  }, []);
+
+  // Fetch media for selected chat
   const fetchChatMedia = useCallback(
-    async (chatId: string, category: MediaCategory, isAppend = false, offsetId?: number) => {
+    async (chatId: string, tab: TelegramMediaTab, isAppend = false, offsetId?: number) => {
       if (isAppend) {
         setLoadingMore(true);
       } else {
@@ -110,7 +129,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
       setErrorMsg(null);
 
       try {
-        const res: any = await api.getChatMedia(chatId, category, 100, offsetId);
+        const res: any = await api.getChatMedia(chatId, tab, 100, offsetId);
         let items: TelegramChatMedia[] = [];
 
         if (Array.isArray(res)) {
@@ -141,25 +160,28 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
     []
   );
 
-  // When selectedChat or categoryFilter changes, fetch first batch
+  // When selectedChat changes, fetch stats and first media batch
   useEffect(() => {
     if (selectedChat) {
-      fetchChatMedia(selectedChat.id, categoryFilter, false);
+      fetchStats(selectedChat.id);
+      fetchChatMedia(selectedChat.id, activeTab, false);
+    } else {
+      setChatStats(null);
     }
-  }, [selectedChat, categoryFilter, fetchChatMedia]);
+  }, [selectedChat, activeTab, fetchStats, fetchChatMedia]);
 
   // Load next batch
   const handleLoadMore = useCallback(() => {
     if (!selectedChat || loadingMedia || loadingMore || !hasMore || !nextOffsetId) return;
-    fetchChatMedia(selectedChat.id, categoryFilter, true, nextOffsetId);
-  }, [selectedChat, loadingMedia, loadingMore, hasMore, nextOffsetId, categoryFilter, fetchChatMedia]);
+    fetchChatMedia(selectedChat.id, activeTab, true, nextOffsetId);
+  }, [selectedChat, loadingMedia, loadingMore, hasMore, nextOffsetId, activeTab, fetchChatMedia]);
 
   // Auto Infinite Scroll Handler
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
     if (!el) return;
     const { scrollTop, scrollHeight, clientHeight } = el;
-    if (scrollHeight - scrollTop - clientHeight < 350) {
+    if (scrollHeight - scrollTop - clientHeight < 400) {
       if (hasMore && !loadingMore && !loadingMedia) {
         handleLoadMore();
       }
@@ -174,34 +196,38 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
     return list.filter((c) => c && c.title && c.title.toLowerCase().includes(q));
   }, [chats, chatSearch]);
 
-  // Filtered media (Defensive)
+  // Filtered media by search query
   const filteredMedia = useMemo(() => {
     const list = Array.isArray(mediaList) ? mediaList : [];
-    let result = list;
-    if (categoryFilter !== 'all') {
-      result = result.filter((m) => m && m.type === categoryFilter);
-    }
-    if (mediaSearch.trim()) {
-      const q = mediaSearch.toLowerCase();
-      result = result.filter(
-        (m) => m && (m.fileName || m.name || '').toLowerCase().includes(q)
-      );
-    }
-    return result;
-  }, [mediaList, categoryFilter, mediaSearch]);
+    if (!mediaSearch.trim()) return list;
+    const q = mediaSearch.toLowerCase();
+    return list.filter((m) => m && (m.fileName || m.name || '').toLowerCase().includes(q));
+  }, [mediaList, mediaSearch]);
 
-  // Category counts in current chat (Defensive)
-  const categoryCounts = useMemo(() => {
-    const counts = { all: 0, image: 0, video: 0, document: 0, audio: 0 };
-    const list = Array.isArray(mediaList) ? mediaList : [];
-    counts.all = list.length;
-    list.forEach((m) => {
-      if (m && counts[m.type] !== undefined) {
-        counts[m.type]++;
-      }
-    });
-    return counts;
-  }, [mediaList]);
+  // Header Subtitle Summary string (e.g. "2177 photos, 142 videos • 35 files")
+  const headerSubtitle = useMemo(() => {
+    if (!selectedChat) return '';
+    if (!chatStats) return `${mediaList.length} items loaded`;
+
+    const parts: string[] = [];
+    if (chatStats.photos > 0 || chatStats.videos > 0) {
+      const mediaParts: string[] = [];
+      if (chatStats.photos > 0) mediaParts.push(`${chatStats.photos.toLocaleString()} photos`);
+      if (chatStats.videos > 0) mediaParts.push(`${chatStats.videos.toLocaleString()} videos`);
+      parts.push(mediaParts.join(', '));
+    }
+    if (chatStats.files > 0) {
+      parts.push(`${chatStats.files.toLocaleString()} files`);
+    }
+    if (chatStats.voice > 0) {
+      parts.push(`${chatStats.voice.toLocaleString()} voice`);
+    }
+
+    if (parts.length === 0) {
+      return `${mediaList.length} items loaded`;
+    }
+    return parts.join(' • ');
+  }, [selectedChat, chatStats, mediaList.length]);
 
   // Keyboard navigation for media preview
   useEffect(() => {
@@ -269,6 +295,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                 setSelectedChat(null);
                 setActiveMediaIndex(null);
                 setMediaList([]);
+                setChatStats(null);
                 setErrorMsg(null);
               }}
               style={{
@@ -313,19 +340,19 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   Archived Chats & Channels
                 </h1>
                 <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>
-                  Browse & stream all photos, videos & docs from Telegram archive
+                  Browse & stream all media, files & voice from your Telegram archive
                 </p>
               </div>
             </div>
           )}
 
           {selectedChat && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
               <div
                 style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '11px',
                   background: selectedChat.isChannel
                     ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'
                     : selectedChat.isGroup
@@ -338,31 +365,27 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                 }}
               >
                 {selectedChat.isChannel ? (
-                  <Radio size={18} />
+                  <Radio size={19} />
                 ) : selectedChat.isGroup ? (
-                  <Users size={18} />
+                  <Users size={19} />
                 ) : (
-                  <UserIcon size={18} />
+                  <UserIcon size={19} />
                 )}
               </div>
               <div>
-                <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
+                <h2 style={{ margin: 0, fontSize: '1.08rem', fontWeight: 700, color: '#0f172a' }}>
                   {selectedChat.title}
                 </h2>
-                <span
+                <div
                   style={{
-                    fontSize: '0.72rem',
+                    fontSize: '0.78rem',
                     color: '#64748b',
                     fontWeight: 500,
+                    marginTop: 1,
                   }}
                 >
-                  {selectedChat.isChannel
-                    ? 'Channel'
-                    : selectedChat.isGroup
-                    ? 'Group'
-                    : 'Direct Chat'}{' '}
-                  • {loadingMedia ? 'Loading media...' : `${mediaList.length} media loaded${hasMore ? '+' : ''}`}
-                </span>
+                  {headerSubtitle}
+                </div>
               </div>
             </div>
           )}
@@ -473,7 +496,8 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
             onClick={() => {
               sfx.playClick();
               if (selectedChat) {
-                fetchChatMedia(selectedChat.id, categoryFilter, false);
+                fetchStats(selectedChat.id);
+                fetchChatMedia(selectedChat.id, activeTab, false);
               } else {
                 fetchArchivedChats();
               }
@@ -504,7 +528,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
         </div>
       </div>
 
-      {/* Category Filter Tabs (When Inside a Chat) */}
+      {/* Official Telegram 3 Categories Subbar: Media | Files | Voice */}
       {selectedChat && (
         <div
           style={{
@@ -518,30 +542,39 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
           }}
         >
           {[
-            { id: 'all' as MediaCategory, label: 'All Media', icon: Layers, count: categoryCounts.all },
-            { id: 'image' as MediaCategory, label: 'Photos', icon: ImageIcon, count: categoryCounts.image },
-            { id: 'video' as MediaCategory, label: 'Videos', icon: Film, count: categoryCounts.video },
-            { id: 'document' as MediaCategory, label: 'Documents', icon: FileText, count: categoryCounts.document },
-            { id: 'audio' as MediaCategory, label: 'Audio', icon: Music, count: categoryCounts.audio },
+            {
+              id: 'media' as TelegramMediaTab,
+              label: 'Media',
+              count: chatStats?.media ?? (chatStats ? chatStats.photos + chatStats.videos : undefined),
+            },
+            {
+              id: 'files' as TelegramMediaTab,
+              label: 'Files',
+              count: chatStats?.files,
+            },
+            {
+              id: 'voice' as TelegramMediaTab,
+              label: 'Voice',
+              count: chatStats?.voice,
+            },
           ].map((tab) => {
-            const Icon = tab.icon;
-            const isActive = categoryFilter === tab.id;
+            const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
                 onClick={() => {
                   sfx.playClick();
-                  setCategoryFilter(tab.id);
+                  setActiveTab(tab.id);
                 }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '0.45rem',
-                  padding: '0.45rem 0.9rem',
+                  gap: '0.5rem',
+                  padding: '0.5rem 1.15rem',
                   borderRadius: '9999px',
-                  fontSize: '0.82rem',
+                  fontSize: '0.88rem',
                   fontWeight: 600,
-                  border: isActive ? '1px solid rgba(36, 129, 204, 0.3)' : '1px solid transparent',
+                  border: isActive ? '1px solid rgba(36, 129, 204, 0.35)' : '1px solid transparent',
                   background: isActive ? '#eef6fd' : '#f8fafc',
                   color: isActive ? '#2481cc' : '#64748b',
                   cursor: 'pointer',
@@ -549,19 +582,19 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   flexShrink: 0,
                 }}
               >
-                <Icon size={14} />
                 <span>{tab.label}</span>
-                {tab.count > 0 && (
+                {tab.count !== undefined && tab.count > 0 && (
                   <span
                     style={{
                       fontSize: '0.72rem',
-                      padding: '1px 6px',
+                      padding: '1px 7px',
                       borderRadius: '9999px',
                       background: isActive ? '#2481cc' : '#e2e8f0',
                       color: isActive ? '#ffffff' : '#64748b',
+                      fontWeight: 700,
                     }}
                   >
-                    {tab.count}
+                    {tab.count.toLocaleString()}
                   </span>
                 )}
               </button>
@@ -605,7 +638,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
             <button
               onClick={() => {
                 if (selectedChat) {
-                  fetchChatMedia(selectedChat.id, categoryFilter, false);
+                  fetchChatMedia(selectedChat.id, activeTab, false);
                 } else {
                   fetchArchivedChats();
                 }
@@ -736,7 +769,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                     onClick={() => {
                       sfx.playClick();
                       setSelectedChat(chat);
-                      setCategoryFilter('all');
+                      setActiveTab('media');
                       setMediaSearch('');
                     }}
                     style={{
@@ -899,10 +932,10 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   <Sparkles size={28} />
                 </div>
                 <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.15rem', color: '#0f172a', fontWeight: 700 }}>
-                  No {categoryFilter !== 'all' ? categoryFilter : ''} Media Found
+                  No {activeTab} found
                 </h3>
                 <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
-                  No media files found in this category for {selectedChat.title}.
+                  No {activeTab} files found in {selectedChat.title}.
                 </p>
               </div>
             ) : viewMode === 'grid' ? (
@@ -1031,7 +1064,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                             }}
                           >
                             <Music size={32} />
-                            <span style={{ fontSize: '0.72rem', fontWeight: 600 }}>AUDIO</span>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 600 }}>VOICE / AUDIO</span>
                           </div>
                         ) : (
                           <div
@@ -1268,10 +1301,10 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   {loadingMore ? (
                     <>
                       <Loader2 size={16} className="animate-spin" />
-                      <span>Loading more media from Telegram...</span>
+                      <span>Loading more {activeTab}...</span>
                     </>
                   ) : (
-                    <span>Load More Media ({mediaList.length} loaded)</span>
+                    <span>Load More {activeTab.toUpperCase()} ({mediaList.length} loaded)</span>
                   )}
                 </button>
               </div>

@@ -270,6 +270,43 @@ export class TelegramClientService {
   }
 
   /**
+   * Get exact count of media items in a chat (Photos, Videos, Files, Voice).
+   */
+  async getChatStats(
+    phone: string,
+    chatId: string,
+  ): Promise<{
+    photos: number;
+    videos: number;
+    media: number;
+    files: number;
+    voice: number;
+  }> {
+    const client = await this.getClient(phone);
+    const entity = await this.resolveEntity(client, chatId);
+
+    const [photosRes, videosRes, filesRes, voiceRes] = await Promise.allSettled([
+      client.getMessages(entity, { filter: new Api.InputMessagesFilterPhotos(), limit: 1 }),
+      client.getMessages(entity, { filter: new Api.InputMessagesFilterVideo(), limit: 1 }),
+      client.getMessages(entity, { filter: new Api.InputMessagesFilterDocument(), limit: 1 }),
+      client.getMessages(entity, { filter: new Api.InputMessagesFilterVoice(), limit: 1 }),
+    ]);
+
+    const photos = photosRes.status === 'fulfilled' ? (photosRes.value as any)?.total || 0 : 0;
+    const videos = videosRes.status === 'fulfilled' ? (videosRes.value as any)?.total || 0 : 0;
+    const files = filesRes.status === 'fulfilled' ? (filesRes.value as any)?.total || 0 : 0;
+    const voice = voiceRes.status === 'fulfilled' ? (voiceRes.value as any)?.total || 0 : 0;
+
+    return {
+      photos,
+      videos,
+      media: photos + videos,
+      files,
+      voice,
+    };
+  }
+
+  /**
    * Fetch media messages from a specific Telegram chat/channel.
    */
   async getChatMedia(
@@ -291,6 +328,7 @@ export class TelegramClientService {
       telegramMsgId: number;
     }[];
     count: number;
+    totalCount: number;
     hasMore: boolean;
     nextOffsetId: number | null;
   }> {
@@ -298,14 +336,24 @@ export class TelegramClientService {
     const entity = await this.resolveEntity(client, chatId);
 
     let filter: any = undefined;
-    if (category === 'image' || category === 'photo') {
+    if (category === 'media') {
+      try {
+        filter = new Api.InputMessagesFilterPhotoVideo();
+      } catch {
+        filter = new Api.InputMessagesFilterPhotos();
+      }
+    } else if (category === 'image' || category === 'photo' || category === 'photos') {
       filter = new Api.InputMessagesFilterPhotos();
-    } else if (category === 'video') {
+    } else if (category === 'video' || category === 'videos') {
       filter = new Api.InputMessagesFilterVideo();
-    } else if (category === 'document') {
+    } else if (category === 'files' || category === 'document' || category === 'documents') {
       filter = new Api.InputMessagesFilterDocument();
-    } else if (category === 'audio') {
-      filter = new Api.InputMessagesFilterMusic();
+    } else if (category === 'voice' || category === 'audio') {
+      try {
+        filter = new Api.InputMessagesFilterVoice();
+      } catch {
+        filter = new Api.InputMessagesFilterMusic();
+      }
     }
 
     const messages = await client.getMessages(entity, {
@@ -370,10 +418,12 @@ export class TelegramClientService {
     const lastMsg = messages && messages.length > 0 ? messages[messages.length - 1] : null;
     const nextOffsetId = lastMsg ? lastMsg.id : null;
     const hasMore = messages && messages.length >= limit;
+    const totalCount = (messages as any)?.total || results.length;
 
     return {
       media: results,
       count: results.length,
+      totalCount,
       hasMore: !!hasMore,
       nextOffsetId,
     };

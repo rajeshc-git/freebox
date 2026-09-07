@@ -303,9 +303,9 @@ export const api = {
   async getChatMedia(
     chatId: string,
     category?: string,
-    limit = 60,
+    limit = 100,
     offsetId?: number
-  ): Promise<{ media: TelegramChatMedia[]; count: number; hasMore: boolean }> {
+  ): Promise<{ media: TelegramChatMedia[]; count: number; totalCount?: number; hasMore: boolean; nextOffsetId?: number | null }> {
     const params = new URLSearchParams();
     if (category && category !== 'all') params.set('category', category);
     if (limit) params.set('limit', limit.toString());
@@ -317,6 +317,16 @@ export const api = {
     if (!res.ok) {
       throw new Error('Failed to fetch chat media');
     }
+    return res.json();
+  },
+
+  async getChatStats(
+    chatId: string
+  ): Promise<{ photos: number; videos: number; media: number; files: number; voice: number }> {
+    const res = await fetch(`${API_BASE}/telegram/chats/${chatId}/stats`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) return { photos: 0, videos: 0, media: 0, files: 0, voice: 0 };
     return res.json();
   },
 
