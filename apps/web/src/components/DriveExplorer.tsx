@@ -706,8 +706,8 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
             </button>
 
 
-            {/* View Mode Toggle */}
-            <div style={{ display: 'flex', background: '#f1f5f9', padding: '0.2rem', borderRadius: 9999 }}>
+            {/* View Mode Toggle (Hidden on Mobile) */}
+            <div className="hide-on-mobile" style={{ display: 'flex', background: '#f1f5f9', padding: '0.2rem', borderRadius: 9999 }}>
               <button
                 onClick={() => { sfx.playClick(); onToggleViewMode('grid'); }}
                 style={{
