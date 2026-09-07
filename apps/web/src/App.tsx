@@ -580,6 +580,20 @@ export const App: React.FC = () => {
     loadDriveData();
   };
 
+  const handleDeleteLivePhotoPair = async (pair: any) => {
+    try {
+      await Promise.all([
+        api.deleteFile(pair.photoFile.id, true),
+        api.deleteFile(pair.videoFile.id, true),
+      ]);
+      sfx.playComplete();
+      await loadDriveData();
+    } catch (err) {
+      console.error('Failed to delete live photo pair', err);
+      await loadDriveData();
+    }
+  };
+
   return (
     <div>
       {view === 'public_share' && sharedSpoolHash ? (
@@ -628,6 +642,7 @@ export const App: React.FC = () => {
             onDeleteFile={handleDeleteFile}
             onRenameFolder={setFolderToRename}
             onDeleteFolder={setFolderToDelete}
+            onDeleteLivePhotoPair={handleDeleteLivePhotoPair}
             onMoveFiles={handleMoveFiles}
             onDropFolderItems={handleDropFolderItems}
             onLogout={() => setIsLogoutOpen(true)}

@@ -19,13 +19,14 @@ import {
   Film,
   FileCheck,
   Zap,
+  Trash2,
 } from 'lucide-react';
 import { DriveFile } from '../types';
 import { api } from '../services/api';
 import { sfx } from '../services/sound';
 import { SmartImage } from './SmartImage';
 
-interface LivePhotoPair {
+export interface LivePhotoPair {
   id: string;
   baseName: string;
   photoFile: DriveFile;
@@ -39,16 +40,19 @@ interface LivePhotosViewProps {
   onUploadPair: (files: File[]) => void;
   onPreviewFile?: (file: DriveFile) => void;
   onShareFile?: (file: DriveFile) => void;
+  onDeletePair?: (pair: LivePhotoPair) => void;
 }
 
 export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
   files,
   onUploadPair,
   onShareFile,
+  onDeletePair,
 }) => {
   const [activeTab, setActiveTab] = useState<'gallery' | 'upload_guide'>('gallery');
   const [pairs, setPairs] = useState<LivePhotoPair[]>([]);
   const [selectedPair, setSelectedPair] = useState<LivePhotoPair | null>(null);
+  const [pairToDelete, setPairToDelete] = useState<LivePhotoPair | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -111,6 +115,17 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
       sfx.playTelegramPop();
       onUploadPair(Array.from(e.target.files));
       setActiveTab('gallery');
+    }
+  };
+
+  const handleConfirmDelete = () => {
+    if (pairToDelete) {
+      sfx.playClick();
+      if (selectedPair?.id === pairToDelete.id) {
+        setSelectedPair(null);
+      }
+      onDeletePair?.(pairToDelete);
+      setPairToDelete(null);
     }
   };
 
@@ -376,6 +391,7 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
                   pair={pair}
                   onOpenLightbox={() => setSelectedPair(pair)}
                   onShare={() => onShareFile?.(pair.photoFile)}
+                  onDelete={() => setPairToDelete(pair)}
                 />
               ))}
             </div>
@@ -635,18 +651,135 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
           pair={selectedPair}
           onClose={() => setSelectedPair(null)}
           onShare={() => onShareFile?.(selectedPair.photoFile)}
+          onDelete={() => setPairToDelete(selectedPair)}
         />
+      )}
+
+      {/* Delete Live Photo Confirmation Modal */}
+      {pairToDelete && (
+        <div
+          className="modal-backdrop"
+          onClick={() => setPairToDelete(null)}
+          style={{ zIndex: 10000 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#ffffff',
+              borderRadius: 24,
+              padding: '2rem',
+              width: '100%',
+              maxWidth: 420,
+              position: 'relative',
+              boxShadow: '0 20px 48px -12px rgba(0, 0, 0, 0.25)',
+              animation: 'popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              textAlign: 'center',
+            }}
+          >
+            <button
+              onClick={() => setPairToDelete(null)}
+              style={{
+                position: 'absolute',
+                top: '1.25rem',
+                right: '1.25rem',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '1.1rem',
+                color: '#64748b',
+              }}
+            >
+              ✕
+            </button>
+
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 18,
+                background: '#fef2f2',
+                border: '1px solid #fee2e2',
+                color: '#ef4444',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 1.25rem',
+              }}
+            >
+              <Trash2 size={26} />
+            </div>
+
+            <h3
+              style={{
+                fontSize: '1.25rem',
+                fontWeight: 800,
+                color: '#0f172a',
+                marginBottom: '0.5rem',
+              }}
+            >
+              Delete Live Photo "{pairToDelete.baseName}"?
+            </h3>
+
+            <p
+              style={{
+                fontSize: '0.88rem',
+                color: '#64748b',
+                lineHeight: 1.5,
+                marginBottom: '1.75rem',
+              }}
+            >
+              This will delete both the <strong>.HEIC</strong> photo and <strong>.MOV</strong> companion video from FreeBox and Telegram cloud.
+            </p>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+              <button
+                onClick={() => setPairToDelete(null)}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem 1rem',
+                  borderRadius: 12,
+                  background: '#f1f5f9',
+                  border: 'none',
+                  color: '#475569',
+                  fontWeight: 600,
+                  fontSize: '0.92rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                style={{
+                  flex: 1,
+                  padding: '0.75rem 1rem',
+                  borderRadius: 12,
+                  background: '#ef4444',
+                  border: 'none',
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: '0.92rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)',
+                }}
+              >
+                Delete Both
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
 };
 
-// Subcomponent: Live Photo Grid Card (Optimized for Mobile)
+// Subcomponent: Live Photo Grid Card (Optimized for Mobile with Delete)
 const LivePhotoCard: React.FC<{
   pair: LivePhotoPair;
   onOpenLightbox: () => void;
   onShare: () => void;
-}> = ({ pair, onOpenLightbox, onShare }) => {
+  onDelete: () => void;
+}> = ({ pair, onOpenLightbox, onShare, onDelete }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -770,6 +903,35 @@ const LivePhotoCard: React.FC<{
           LIVE
         </div>
 
+        {/* Delete Quick Action Button on Card */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          title="Delete Live Photo"
+          style={{
+            position: 'absolute',
+            top: '0.5rem',
+            right: '0.5rem',
+            background: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(4px)',
+            border: 'none',
+            borderRadius: 6,
+            padding: '0.3rem',
+            color: '#ef4444',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+            zIndex: 2,
+            transition: 'all 0.15s ease',
+          }}
+        >
+          <Trash2 size={13} />
+        </button>
+
         {/* Play indicator overlay on mobile */}
         {!isPlaying && (
           <div
@@ -819,12 +981,13 @@ const LivePhotoCard: React.FC<{
   );
 };
 
-// Subcomponent: Live Photo Lightbox (Ultra Mobile Responsive)
+// Subcomponent: Live Photo Lightbox (Ultra Mobile Responsive with Delete)
 const LivePhotoLightbox: React.FC<{
   pair: LivePhotoPair;
   onClose: () => void;
   onShare: () => void;
-}> = ({ pair, onClose, onShare }) => {
+  onDelete: () => void;
+}> = ({ pair, onClose, onShare, onDelete }) => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [speed, setSpeed] = useState(1);
@@ -906,7 +1069,7 @@ const LivePhotoLightbox: React.FC<{
           </span>
         </div>
 
-        {/* Actions: Download & Close */}
+        {/* Actions: Download, Delete & Close */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
           <a
             href={api.getFileDownloadUrl(pair.photoFile.id)}
@@ -949,6 +1112,27 @@ const LivePhotoLightbox: React.FC<{
             <Download size={13} />
             <span className="hide-text-on-mobile">.MOV</span>
           </a>
+
+          <button
+            onClick={onDelete}
+            title="Delete Live Photo Pair"
+            style={{
+              background: 'rgba(239, 68, 68, 0.3)',
+              border: '1px solid rgba(239, 68, 68, 0.5)',
+              color: '#fca5a5',
+              padding: '0.4rem 0.65rem',
+              borderRadius: 8,
+              fontSize: '0.75rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            <Trash2 size={13} />
+            <span className="hide-text-on-mobile">Delete</span>
+          </button>
 
           <button
             onClick={onClose}

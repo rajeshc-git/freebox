@@ -35,7 +35,7 @@ import { User, Folder, DriveFile, StorageMetrics } from '../types';
 import { sfx } from '../services/sound';
 import { api } from '../services/api';
 import { MoveModal } from './Modals';
-import { LivePhotosView } from './LivePhotosView';
+import { LivePhotosView, LivePhotoPair } from './LivePhotosView';
 import { SmartImage } from './SmartImage';
 
 interface DriveExplorerProps {
@@ -65,6 +65,7 @@ interface DriveExplorerProps {
   onDeleteFile: (fileId: string) => void;
   onRenameFolder: (folder: Folder) => void;
   onDeleteFolder: (folder: Folder) => void;
+  onDeleteLivePhotoPair: (pair: LivePhotoPair) => void;
   onMoveFiles: (fileIds: string[], targetFolderId: string | null) => void;
   onDropFolderItems: (items: { file: File; relativePath: string }[]) => void;
   onLogout: () => void;
@@ -97,6 +98,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
   onDeleteFile,
   onRenameFolder,
   onDeleteFolder,
+  onDeleteLivePhotoPair,
   onMoveFiles,
   onDropFolderItems,
   onLogout,
@@ -738,128 +740,157 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           </div>
         </header>
 
-        {/* Breadcrumbs & Filters Subbar */}
-        <div
-          className="explorer-subbar"
-          style={{
-            padding: '0.75rem 1.75rem',
-            borderBottom: '1px solid var(--border-subtle)',
-            background: '#fff',
-          }}
-        >
-          {/* Top Row on Mobile / Left on Desktop: Breadcrumb path with Select All on Mobile */}
-          <div className="explorer-subbar-top">
-            {/* Breadcrumb path with Back Arrow and Drag Target */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.88rem', flexWrap: 'wrap', minWidth: 0 }}>
-              {currentFolderId && (
-                <button
+        {/* Breadcrumbs & Filters Subbar (Hidden in dedicated Live Photos page) */}
+        {currentCategory !== 'live_photo' && (
+          <div
+            className="explorer-subbar"
+            style={{
+              padding: '0.75rem 1.75rem',
+              borderBottom: '1px solid var(--border-subtle)',
+              background: '#fff',
+            }}
+          >
+            {/* Top Row on Mobile / Left on Desktop: Breadcrumb path with Select All on Mobile */}
+            <div className="explorer-subbar-top">
+              {/* Breadcrumb path with Back Arrow and Drag Target */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.88rem', flexWrap: 'wrap', minWidth: 0 }}>
+                {currentFolderId && (
+                  <button
+                    onClick={() => {
+                      sfx.playClick();
+                      onNavigateFolder(currentFolder?.parentId || null);
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragTargetFolderId('breadcrumb-back-arrow');
+                    }}
+                    onDragLeave={() => {
+                      if (dragTargetFolderId === 'breadcrumb-back-arrow') setDragTargetFolderId(null);
+                    }}
+                    onDrop={(e) => handleDropOnFolder(e, currentFolder?.parentId || null)}
+                    title="Back to parent folder (or drop files here to move out)"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 32,
+                      height: 32,
+                      borderRadius: 8,
+                      border: dragTargetFolderId === 'breadcrumb-back-arrow' ? '1.5px dashed var(--tg-blue)' : '1px solid var(--border-medium)',
+                      background: dragTargetFolderId === 'breadcrumb-back-arrow' ? '#eff6ff' : '#fff',
+                      color: dragTargetFolderId === 'breadcrumb-back-arrow' ? 'var(--tg-blue)' : 'var(--text-main)',
+                      cursor: 'pointer',
+                      marginRight: '0.25rem',
+                      boxShadow: 'var(--shadow-sm)',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <ArrowLeft size={16} />
+                  </button>
+                )}
+
+                <span
                   onClick={() => {
                     sfx.playClick();
-                    onNavigateFolder(currentFolder?.parentId || null);
+                    onNavigateFolder(null);
                   }}
                   onDragOver={(e) => {
                     e.preventDefault();
-                    setDragTargetFolderId('breadcrumb-back-arrow');
+                    if (currentFolderId) setDragTargetFolderId('breadcrumb-root');
                   }}
                   onDragLeave={() => {
-                    if (dragTargetFolderId === 'breadcrumb-back-arrow') setDragTargetFolderId(null);
+                    if (dragTargetFolderId === 'breadcrumb-root') setDragTargetFolderId(null);
                   }}
-                  onDrop={(e) => handleDropOnFolder(e, currentFolder?.parentId || null)}
-                  title="Back to parent folder (or drop files here to move out)"
+                  onDrop={(e) => handleDropOnFolder(e, null)}
                   style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 32,
-                    height: 32,
-                    borderRadius: 8,
-                    border: dragTargetFolderId === 'breadcrumb-back-arrow' ? '1.5px dashed var(--tg-blue)' : '1px solid var(--border-medium)',
-                    background: dragTargetFolderId === 'breadcrumb-back-arrow' ? '#eff6ff' : '#fff',
-                    color: dragTargetFolderId === 'breadcrumb-back-arrow' ? 'var(--tg-blue)' : 'var(--text-main)',
+                    color: dragTargetFolderId === 'breadcrumb-root' ? '#2563eb' : !currentFolderId ? 'var(--text-main)' : 'var(--text-muted)',
                     cursor: 'pointer',
-                    marginRight: '0.25rem',
-                    boxShadow: 'var(--shadow-sm)',
+                    fontWeight: !currentFolderId || dragTargetFolderId === 'breadcrumb-root' ? 700 : 500,
+                    background: dragTargetFolderId === 'breadcrumb-root' ? '#eff6ff' : 'transparent',
+                    padding: '0.2rem 0.55rem',
+                    borderRadius: 8,
+                    border: dragTargetFolderId === 'breadcrumb-root' ? '1.5px dashed var(--tg-blue)' : '1.5px solid transparent',
                     transition: 'all 0.15s ease',
                   }}
                 >
-                  <ArrowLeft size={16} />
+                  My Files {dragTargetFolderId === 'breadcrumb-root' && '← Drop to Move Here'}
+                </span>
+
+                {folderPath.map((item, index) => {
+                  const isLast = index === folderPath.length - 1;
+                  const isDragTarget = dragTargetFolderId === `breadcrumb-${item.id}`;
+                  return (
+                    <React.Fragment key={item.id}>
+                      <ChevronRight size={14} color="var(--text-light)" />
+                      <span
+                        onClick={() => {
+                          if (!isLast) {
+                            sfx.playClick();
+                            onNavigateFolder(item.id);
+                          }
+                        }}
+                        onDragOver={(e) => {
+                          if (!isLast) {
+                            e.preventDefault();
+                            setDragTargetFolderId(`breadcrumb-${item.id}`);
+                          }
+                        }}
+                        onDragLeave={() => {
+                          if (isDragTarget) setDragTargetFolderId(null);
+                        }}
+                        onDrop={(e) => {
+                          if (!isLast) handleDropOnFolder(e, item.id);
+                        }}
+                        style={{
+                          color: isDragTarget ? '#2563eb' : isLast ? 'var(--tg-blue)' : 'var(--text-muted)',
+                          cursor: isLast ? 'default' : 'pointer',
+                          fontWeight: isLast ? 700 : 500,
+                          background: isDragTarget ? '#eff6ff' : 'transparent',
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: 8,
+                          border: isDragTarget ? '1.5px dashed var(--tg-blue)' : '1.5px solid transparent',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {item.name}
+                      </span>
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+
+              {/* Select All on Mobile (Top Right) */}
+              <div className="hide-on-desktop">
+                <button
+                  onClick={selectAll}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                >
+                  {selectedIds.length === files.length && files.length > 0 ? (
+                    <CheckSquare size={16} color="var(--tg-blue)" />
+                  ) : (
+                    <Square size={16} />
+                  )}
+                  <span>Select All</span>
                 </button>
-              )}
-
-              <span
-                onClick={() => {
-                  sfx.playClick();
-                  onNavigateFolder(null);
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  if (currentFolderId) setDragTargetFolderId('breadcrumb-root');
-                }}
-                onDragLeave={() => {
-                  if (dragTargetFolderId === 'breadcrumb-root') setDragTargetFolderId(null);
-                }}
-                onDrop={(e) => handleDropOnFolder(e, null)}
-                style={{
-                  color: dragTargetFolderId === 'breadcrumb-root' ? '#2563eb' : !currentFolderId ? 'var(--text-main)' : 'var(--text-muted)',
-                  cursor: 'pointer',
-                  fontWeight: !currentFolderId || dragTargetFolderId === 'breadcrumb-root' ? 700 : 500,
-                  background: dragTargetFolderId === 'breadcrumb-root' ? '#eff6ff' : 'transparent',
-                  padding: '0.2rem 0.55rem',
-                  borderRadius: 8,
-                  border: dragTargetFolderId === 'breadcrumb-root' ? '1.5px dashed var(--tg-blue)' : '1.5px solid transparent',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                My Files {dragTargetFolderId === 'breadcrumb-root' && '← Drop to Move Here'}
-              </span>
-
-              {folderPath.map((item, index) => {
-                const isLast = index === folderPath.length - 1;
-                const isDragTarget = dragTargetFolderId === `breadcrumb-${item.id}`;
-                return (
-                  <React.Fragment key={item.id}>
-                    <ChevronRight size={14} color="var(--text-light)" />
-                    <span
-                      onClick={() => {
-                        if (!isLast) {
-                          sfx.playClick();
-                          onNavigateFolder(item.id);
-                        }
-                      }}
-                      onDragOver={(e) => {
-                        if (!isLast) {
-                          e.preventDefault();
-                          setDragTargetFolderId(`breadcrumb-${item.id}`);
-                        }
-                      }}
-                      onDragLeave={() => {
-                        if (isDragTarget) setDragTargetFolderId(null);
-                      }}
-                      onDrop={(e) => {
-                        if (!isLast) handleDropOnFolder(e, item.id);
-                      }}
-                      style={{
-                        color: isDragTarget ? '#2563eb' : isLast ? 'var(--tg-blue)' : 'var(--text-muted)',
-                        cursor: isLast ? 'default' : 'pointer',
-                        fontWeight: isLast ? 700 : 500,
-                        background: isDragTarget ? '#eff6ff' : 'transparent',
-                        padding: '0.2rem 0.55rem',
-                        borderRadius: 8,
-                        border: isDragTarget ? '1.5px dashed var(--tg-blue)' : '1.5px solid transparent',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      {item.name}
-                    </span>
-                  </React.Fragment>
-                );
-              })}
+              </div>
             </div>
 
-            {/* Select All on Mobile (Top Right) */}
-            <div className="hide-on-desktop">
+            {/* Desktop Right / Mobile Bottom Full-Width Strip: Select All (Desktop) + Category Scroll */}
+            <div className="explorer-subbar-right">
               <button
                 onClick={selectAll}
+                className="hide-on-mobile"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -873,76 +904,49 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                   flexShrink: 0,
                 }}
               >
-                {selectedIds.length === files.length && files.length > 0 ? (
+                {selectedIds.length === displayedFiles.length && displayedFiles.length > 0 ? (
                   <CheckSquare size={16} color="var(--tg-blue)" />
                 ) : (
                   <Square size={16} />
                 )}
                 <span>Select All</span>
               </button>
+
+              <div className="explorer-category-scroll">
+                {[
+                  { id: 'all', label: 'All' },
+                  { id: 'image', label: 'Photos' },
+                  { id: 'video', label: 'Videos' },
+                  { id: 'document', label: 'Documents' },
+                  { id: 'audio', label: 'Audio' },
+                  { id: 'archive', label: 'Archives' },
+                  { id: 'live_photo', label: 'Live Photos ✨' },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      sfx.playClick();
+                      onSelectCategory(cat.id);
+                    }}
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      padding: '0.32rem 0.75rem',
+                      borderRadius: 9999,
+                      background: currentCategory === cat.id ? '#eef6fd' : '#f1f5f9',
+                      color: currentCategory === cat.id ? 'var(--tg-blue)' : 'var(--text-muted)',
+                      border: currentCategory === cat.id ? '1px solid rgba(36,129,204,0.25)' : '1px solid transparent',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-
-          {/* Desktop Right / Mobile Bottom Full-Width Strip: Select All (Desktop) + Category Scroll */}
-          <div className="explorer-subbar-right">
-            <button
-              onClick={selectAll}
-              className="hide-on-mobile"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                background: 'transparent',
-                border: 'none',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                flexShrink: 0,
-              }}
-            >
-              {selectedIds.length === displayedFiles.length && displayedFiles.length > 0 ? (
-                <CheckSquare size={16} color="var(--tg-blue)" />
-              ) : (
-                <Square size={16} />
-              )}
-              <span>Select All</span>
-            </button>
-
-            <div className="explorer-category-scroll">
-              {[
-                { id: 'all', label: 'All' },
-                { id: 'image', label: 'Photos' },
-                { id: 'video', label: 'Videos' },
-                { id: 'document', label: 'Documents' },
-                { id: 'audio', label: 'Audio' },
-                { id: 'archive', label: 'Archives' },
-                { id: 'live_photo', label: 'Live Photos ✨' },
-              ].map((cat) => (
-                <button
-                  key={cat.id}
-                  onClick={() => {
-                    sfx.playClick();
-                    onSelectCategory(cat.id);
-                  }}
-                  style={{
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    padding: '0.32rem 0.75rem',
-                    borderRadius: 9999,
-                    background: currentCategory === cat.id ? '#eef6fd' : '#f1f5f9',
-                    color: currentCategory === cat.id ? 'var(--tg-blue)' : 'var(--text-muted)',
-                    border: currentCategory === cat.id ? '1px solid rgba(36,129,204,0.25)' : '1px solid transparent',
-                    cursor: 'pointer',
-                    flexShrink: 0,
-                  }}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* If Live Photos is selected, render the dedicated Apple Live Photos Studio */}
         {currentCategory === 'live_photo' ? (
@@ -951,6 +955,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
             onUploadPair={(fls) => onDropFolderItems(fls.map((f) => ({ file: f, relativePath: f.name })))}
             onPreviewFile={onPreviewFile}
             onShareFile={onShareFile}
+            onDeletePair={onDeleteLivePhotoPair}
           />
         ) : (
           /* Scrollable File & Folder Area */
