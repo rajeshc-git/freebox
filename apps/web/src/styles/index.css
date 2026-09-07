@@ -936,6 +936,18 @@ body {
 }
 
 /* Mobile & Responsive Enhancements */
+.show-on-mobile-flex {
+  display: none !important;
+}
+
+.menu-item-hover {
+  transition: all 0.15s ease;
+}
+.menu-item-hover:hover,
+.menu-item-hover:active {
+  background: #f1f5f9 !important;
+}
+
 @media (max-width: 768px) {
   .landing-footer-links {
     display: none !important;
@@ -952,6 +964,20 @@ body {
   }
   .hide-on-desktop {
     display: flex !important;
+  }
+  .show-on-mobile-flex {
+    display: flex !important;
+  }
+  .main-top-header {
+    padding: 0.65rem 0.9rem !important;
+    gap: 0.5rem !important;
+  }
+  .global-search-input {
+    font-size: 0.82rem !important;
+    padding: 0.45rem 0.75rem 0.45rem 2.1rem !important;
+  }
+  .header-action-toolbar {
+    gap: 0.4rem !important;
   }
   .explorer-subbar {
     flex-direction: column !important;
@@ -1015,6 +1041,9 @@ body {
 
 @media (min-width: 769px) {
   .hide-on-desktop {
+    display: none !important;
+  }
+  .show-on-mobile-flex {
     display: none !important;
   }
   .explorer-subbar {

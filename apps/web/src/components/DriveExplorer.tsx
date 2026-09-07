@@ -31,6 +31,7 @@ import {
   FolderInput,
   Pencil,
   RotateCcw,
+  ChevronDown,
 } from 'lucide-react';
 import { User, Folder, DriveFile, StorageMetrics } from '../types';
 import { sfx } from '../services/sound';
@@ -125,6 +126,24 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
   const [fileToDelete, setFileToDelete] = useState<DriveFile | null>(null);
   const [isBatchDeleteOpen, setIsBatchDeleteOpen] = useState(false);
   const [isEmptyTrashOpen, setIsEmptyTrashOpen] = useState(false);
+  const [isMobileAddMenuOpen, setIsMobileAddMenuOpen] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent | TouchEvent) {
+      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) {
+        setIsMobileAddMenuOpen(false);
+      }
+    }
+    if (isMobileAddMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('touchstart', handleClickOutside);
+      };
+    }
+  }, [isMobileAddMenuOpen]);
 
   const longPressTimerRef = useRef<any>(null);
   const isLongPressRef = useRef(false);
@@ -612,6 +631,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
       <main style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#fafbfc', overflow: 'hidden' }}>
         {/* Top Header */}
         <header
+          className="main-top-header"
           style={{
             padding: '0.85rem 1.75rem',
             background: '#fff',
@@ -622,7 +642,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
             gap: '1rem',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, maxWidth: 520 }}>
+          <div className="search-bar-container" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, maxWidth: 520, minWidth: 0 }}>
             {/* Mobile Sidebar Toggle */}
             <button
               onClick={() => setIsMobileSidebarOpen(true)}
@@ -634,6 +654,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                 padding: '0.5rem',
                 cursor: 'pointer',
                 display: 'none',
+                flexShrink: 0,
               }}
             >
               <Menu size={18} />
@@ -644,18 +665,21 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
               style={{
                 position: 'relative',
                 flex: 1,
+                minWidth: 0,
                 display: 'flex',
                 alignItems: 'center',
               }}
             >
-              <Search size={16} color="var(--text-light)" style={{ position: 'absolute', left: '0.85rem' }} />
+              <Search size={16} color="var(--text-light)" style={{ position: 'absolute', left: '0.85rem', flexShrink: 0 }} />
               <input
                 type="text"
                 placeholder="Search files or Telegram spool hash... (⌘K)"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
+                className="global-search-input"
                 style={{
                   width: '100%',
+                  minWidth: 0,
                   background: '#f1f5f9',
                   border: '1px solid transparent',
                   borderRadius: 9999,
@@ -669,7 +693,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           </div>
 
           {/* Action Buttons Toolbar */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <div className="header-action-toolbar" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexShrink: 0 }}>
             {/* Cmd+K shortcut button */}
             <button
               onClick={onOpenCommandPalette}
@@ -746,13 +770,13 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
               </button>
             ) : (
               <>
-                {/* Upload File Button */}
-                <button className="btn-action-primary" onClick={() => { sfx.playClick(); onOpenUpload(); }} style={{ flexShrink: 0 }}>
+                {/* Upload File Button (Desktop) */}
+                <button className="btn-action-primary hide-on-mobile" onClick={() => { sfx.playClick(); onOpenUpload(); }} style={{ flexShrink: 0 }}>
                   <Upload size={15} />
                   <span>Upload File</span>
                 </button>
 
-                {/* Bulk Upload Folder Button */}
+                {/* Bulk Upload Folder Button (Desktop) */}
                 <button
                   onClick={() => { sfx.playClick(); onOpenFolderUpload(); }}
                   className="hide-on-mobile"
@@ -777,16 +801,152 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                   <span>Upload Folder</span>
                 </button>
 
-                {/* New Folder Button */}
+                {/* New Folder Button (Desktop) */}
                 <button className="btn-action-secondary hide-on-mobile" onClick={() => { sfx.playClick(); onOpenNewFolder(); }} style={{ flexShrink: 0 }}>
                   <Plus size={15} />
                   <span>New Folder</span>
                 </button>
+
+                {/* Mobile Unified "+ Add" Dropdown Menu */}
+                <div ref={addMenuRef} className="show-on-mobile-flex" style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => {
+                      sfx.playClick();
+                      setIsMobileAddMenuOpen((prev) => !prev);
+                    }}
+                    className="btn-action-primary"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      padding: '0.5rem 0.85rem',
+                      fontSize: '0.84rem',
+                      fontWeight: 700,
+                      borderRadius: 9999,
+                      flexShrink: 0,
+                    }}
+                    aria-expanded={isMobileAddMenuOpen}
+                  >
+                    <Plus size={16} />
+                    <span>Add</span>
+                    <ChevronDown size={14} style={{ transform: isMobileAddMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.18s ease' }} />
+                  </button>
+
+                  {isMobileAddMenuOpen && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 8px)',
+                        right: 0,
+                        background: 'rgba(255, 255, 255, 0.98)',
+                        backdropFilter: 'blur(16px)',
+                        WebkitBackdropFilter: 'blur(16px)',
+                        border: '1px solid rgba(226, 232, 240, 0.9)',
+                        borderRadius: 14,
+                        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.15), 0 2px 6px rgba(0, 0, 0, 0.05)',
+                        padding: '0.45rem',
+                        minWidth: 195,
+                        zIndex: 100,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.25rem',
+                      }}
+                    >
+                      <button
+                        onClick={() => {
+                          setIsMobileAddMenuOpen(false);
+                          sfx.playClick();
+                          onOpenUpload();
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.65rem',
+                          padding: '0.6rem 0.85rem',
+                          border: 'none',
+                          background: 'transparent',
+                          borderRadius: 10,
+                          fontSize: '0.86rem',
+                          fontWeight: 600,
+                          color: 'var(--text-main)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          width: '100%',
+                        }}
+                        className="menu-item-hover"
+                      >
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: '#eff6ff', color: 'var(--tg-blue)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Upload size={15} />
+                        </div>
+                        <span>Upload File</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsMobileAddMenuOpen(false);
+                          sfx.playClick();
+                          onOpenFolderUpload();
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.65rem',
+                          padding: '0.6rem 0.85rem',
+                          border: 'none',
+                          background: 'transparent',
+                          borderRadius: 10,
+                          fontSize: '0.86rem',
+                          fontWeight: 600,
+                          color: 'var(--text-main)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          width: '100%',
+                        }}
+                        className="menu-item-hover"
+                      >
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: '#f0fdf4', color: '#16a34a', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FolderUp size={15} />
+                        </div>
+                        <span>Upload Folder</span>
+                      </button>
+
+                      <div style={{ height: 1, background: 'var(--border-subtle)', margin: '0.2rem 0' }} />
+
+                      <button
+                        onClick={() => {
+                          setIsMobileAddMenuOpen(false);
+                          sfx.playClick();
+                          onOpenNewFolder();
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.65rem',
+                          padding: '0.6rem 0.85rem',
+                          border: 'none',
+                          background: 'transparent',
+                          borderRadius: 10,
+                          fontSize: '0.86rem',
+                          fontWeight: 600,
+                          color: 'var(--text-main)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          width: '100%',
+                        }}
+                        className="menu-item-hover"
+                      >
+                        <div style={{ width: 28, height: 28, borderRadius: 8, background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <FolderPlus size={15} />
+                        </div>
+                        <span>New Folder</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </>
             )}
 
-
-            {/* View Mode Toggle (Hidden on Mobile) */}
+            {/* View Mode Toggle (Desktop) */}
             <div className="hide-on-mobile" style={{ display: 'flex', background: '#f1f5f9', padding: '0.2rem', borderRadius: 9999 }}>
               <button
                 onClick={() => { sfx.playClick(); onToggleViewMode('grid'); }}
@@ -815,6 +975,31 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                 <List size={15} />
               </button>
             </div>
+
+            {/* View Mode Toggle (Mobile Single Button Toggle) */}
+            <button
+              className="show-on-mobile-flex"
+              onClick={() => {
+                sfx.playClick();
+                onToggleViewMode(viewMode === 'grid' ? 'list' : 'grid');
+              }}
+              title={`Switch to ${viewMode === 'grid' ? 'List' : 'Grid'} view`}
+              style={{
+                background: '#f1f5f9',
+                border: 'none',
+                borderRadius: '50%',
+                width: 36,
+                height: 36,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: 'var(--text-muted)',
+                flexShrink: 0,
+              }}
+            >
+              {viewMode === 'grid' ? <List size={16} /> : <Grid size={16} />}
+            </button>
           </div>
         </header>
 
