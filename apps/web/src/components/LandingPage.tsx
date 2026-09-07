@@ -207,7 +207,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
                       position: 'absolute',
                       top: 'calc(100% + 8px)',
                       left: 0,
-                      width: 320,
+                      width: 'min(320px, calc(100vw - 3.5rem))',
                       background: '#ffffff',
                       border: '1px solid #e2e8f0',
                       borderRadius: 16,
