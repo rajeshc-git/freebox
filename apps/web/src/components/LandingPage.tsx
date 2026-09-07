@@ -810,6 +810,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
           </div>
 
           <div
+            className="landing-footer-author"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -836,7 +837,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
             </span>
           </div>
 
-          <div style={{ display: 'flex', gap: '1.75rem', fontSize: '0.88rem', color: 'var(--text-muted)' }}>
+          <div className="landing-footer-links" style={{ display: 'flex', gap: '1.75rem', fontSize: '0.88rem', color: 'var(--text-muted)' }}>
             <a href="#about" style={{ textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
               About
             </a>

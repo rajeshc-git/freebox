@@ -928,6 +928,13 @@ body {
 
 /* Mobile & Responsive Enhancements */
 @media (max-width: 768px) {
+  .landing-footer-links {
+    display: none !important;
+  }
+  .landing-footer-author {
+    font-size: 0.78rem !important;
+    padding: 0.35rem 0.85rem !important;
+  }
   .hide-on-mobile {
     display: none !important;
   }
