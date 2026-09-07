@@ -42,11 +42,11 @@ export class TelegramService {
     return this.telegramClient.getChatMedia(phone, chatId, category, limit, offsetId);
   }
 
-  async getChatStats(phone: string, chatId: string) {
-    return this.telegramClient.getChatStats(phone, chatId);
-  }
-
   async downloadChatMedia(phone: string, chatId: string, messageId: number) {
     return this.telegramClient.downloadChatMedia(phone, chatId, messageId);
+  }
+
+  async getChatStats(phone: string, chatId: string) {
+    return this.telegramClient.getChatStats(phone, chatId);
   }
 }

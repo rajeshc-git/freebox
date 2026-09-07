@@ -303,9 +303,9 @@ export const api = {
   async getChatMedia(
     chatId: string,
     category?: string,
-    limit = 100,
+    limit = 60,
     offsetId?: number
-  ): Promise<{ media: TelegramChatMedia[]; count: number; totalCount?: number; hasMore: boolean; nextOffsetId?: number | null }> {
+  ): Promise<{ media: TelegramChatMedia[]; count: number; hasMore: boolean }> {
     const params = new URLSearchParams();
     if (category && category !== 'all') params.set('category', category);
     if (limit) params.set('limit', limit.toString());
@@ -320,20 +320,26 @@ export const api = {
     return res.json();
   },
 
-  async getChatStats(
-    chatId: string
-  ): Promise<{ photos: number; videos: number; media: number; files: number; voice: number }> {
-    const res = await fetch(`${API_BASE}/telegram/chats/${chatId}/stats`, {
-      headers: authHeaders(),
-    });
-    if (!res.ok) return { photos: 0, videos: 0, media: 0, files: 0, voice: 0 };
-    return res.json();
-  },
-
   getChatMediaStreamUrl(chatId: string, messageId: number): string {
     const token = getAuthToken();
     const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
     return `${API_BASE}/telegram/chats/${chatId}/media/${messageId}/stream${tokenParam}`;
+  },
+
+  async getChatStats(chatId: string): Promise<{
+    photos: number;
+    videos: number;
+    media: number;
+    files: number;
+    voice: number;
+  }> {
+    const res = await fetch(`${API_BASE}/telegram/chats/${chatId}/stats`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      return { photos: 0, videos: 0, media: 0, files: 0, voice: 0 };
+    }
+    return res.json();
   },
 };
 

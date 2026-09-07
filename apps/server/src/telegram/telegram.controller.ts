@@ -124,18 +124,9 @@ export class TelegramController {
     @Headers('authorization') auth?: string,
   ) {
     const phone = this.getUserPhone(auth);
-    const parsedLimit = limit ? parseInt(limit, 10) : 100;
+    const parsedLimit = limit ? parseInt(limit, 10) : 60;
     const parsedOffsetId = offsetId ? parseInt(offsetId, 10) : undefined;
     return this.telegramService.getChatMedia(phone, chatId, category, parsedLimit, parsedOffsetId);
-  }
-
-  @Get('chats/:chatId/stats')
-  async getChatStats(
-    @Param('chatId') chatId: string,
-    @Headers('authorization') auth?: string,
-  ) {
-    const phone = this.getUserPhone(auth);
-    return this.telegramService.getChatStats(phone, chatId);
   }
 
   @Get('chats/:chatId/media/:messageId/stream')
@@ -159,4 +150,14 @@ export class TelegramController {
       mimeType: mediaResult.mimeType,
     });
   }
+
+  @Get('chats/:chatId/stats')
+  async getChatStats(
+    @Param('chatId') chatId: string,
+    @Headers('authorization') auth?: string,
+  ) {
+    const phone = this.getUserPhone(auth);
+    return this.telegramService.getChatStats(phone, chatId);
+  }
 }
+
