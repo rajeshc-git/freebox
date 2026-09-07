@@ -432,15 +432,31 @@ export class DriveService {
     const trashCount = await this.prisma.file.count({ where: { isTrashed: true } });
     const files = await this.prisma.file.findMany({
       where: { isTrashed: false },
-      select: { size: true, type: true, starred: true },
+      select: { name: true, mimeType: true, size: true, type: true, starred: true },
     });
 
     const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+
+    const images = new Set<string>();
+    const videos = new Set<string>();
+    files.forEach((f) => {
+      const ext = f.name.split('.').pop()?.toLowerCase() || '';
+      const lastDot = f.name.lastIndexOf('.');
+      const base = lastDot > 0 ? f.name.substring(0, lastDot).toLowerCase() : f.name.toLowerCase();
+      if (['heic', 'jpg', 'jpeg', 'png'].includes(ext) || f.mimeType?.startsWith('image/')) images.add(base);
+      if (['mov', 'mp4'].includes(ext) || f.mimeType?.startsWith('video/')) videos.add(base);
+    });
+
+    let livePhotosCount = 0;
+    images.forEach((b) => {
+      if (videos.has(b)) livePhotosCount++;
+    });
 
     return {
       totalFiles,
       totalBytes,
       trashCount,
+      livePhotosCount,
       quota: 'UNLIMITED',
       isUnlimited: true,
       provider: 'Telegram MTProto Cloud',
@@ -452,6 +468,7 @@ export class DriveService {
         archives: files.filter(f => f.type === 'archive').length,
         starred: files.filter(f => f.starred).length,
         trash: trashCount,
+        live_photo: livePhotosCount,
       },
     };
   }

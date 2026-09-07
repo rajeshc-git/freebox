@@ -40,6 +40,7 @@ export interface StorageMetrics {
   totalFiles: number;
   totalBytes: number;
   trashCount?: number;
+  livePhotosCount?: number;
   quota: string;
   isUnlimited: boolean;
   provider: string;
@@ -51,6 +52,7 @@ export interface StorageMetrics {
     archives: number;
     starred: number;
     trash?: number;
+    live_photo?: number;
   };
 }
 

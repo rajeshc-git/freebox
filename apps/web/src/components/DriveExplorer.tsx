@@ -384,9 +384,9 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
         <ul style={{ padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', listStyle: 'none' }}>
           {[
-            { id: 'all', label: 'My Files', icon: FolderIcon, count: currentNav === 'all' ? displayedFiles.length : (metrics?.totalFiles ?? displayedFiles.length) },
-            { id: 'starred', label: 'Starred', icon: Star, count: currentNav === 'starred' ? displayedFiles.length : (metrics?.categories?.starred ?? 0) },
-            { id: 'trash', label: 'Trash', icon: Trash2, count: metrics?.trashCount ?? (currentNav === 'trash' ? files.length : 0) },
+            { id: 'all', label: 'My Files', icon: FolderIcon, count: metrics?.totalFiles ?? displayedFiles.length },
+            { id: 'starred', label: 'Starred', icon: Star, count: metrics?.categories?.starred ?? 0 },
+            { id: 'trash', label: 'Trash', icon: Trash2, count: metrics?.trashCount ?? 0 },
           ].map((item) => (
             <li
               key={item.id}
@@ -460,12 +460,12 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
         <ul style={{ padding: '0 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', listStyle: 'none' }}>
           {[
-            { id: 'image', label: 'Photos', count: metrics?.categories?.images || 0 },
-            { id: 'video', label: 'Videos', count: metrics?.categories?.videos || 0 },
-            { id: 'document', label: 'Documents', count: metrics?.categories?.documents || 0 },
-            { id: 'audio', label: 'Audio', count: metrics?.categories?.audio || 0 },
-            { id: 'archive', label: 'Archives', count: metrics?.categories?.archives || 0 },
-            { id: 'live_photo', label: 'Live Photos', count: livePhotosCount, isLive: true },
+            { id: 'image', label: 'Photos', count: metrics?.categories?.images ?? 0 },
+            { id: 'video', label: 'Videos', count: metrics?.categories?.videos ?? 0 },
+            { id: 'document', label: 'Documents', count: metrics?.categories?.documents ?? 0 },
+            { id: 'audio', label: 'Audio', count: metrics?.categories?.audio ?? 0 },
+            { id: 'archive', label: 'Archives', count: metrics?.categories?.archives ?? 0 },
+            { id: 'live_photo', label: 'Live Photos', count: metrics?.livePhotosCount ?? metrics?.categories?.live_photo ?? livePhotosCount, isLive: true },
           ].map((cat) => (
             <li
               key={cat.id}
