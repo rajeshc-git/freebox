@@ -13,6 +13,7 @@ import {
   Download,
   X,
   Play,
+  Pause,
   Users,
   Radio,
   User as UserIcon,
@@ -22,6 +23,7 @@ import {
   AlertCircle,
   Loader2,
   Mic,
+  Volume2,
 } from 'lucide-react';
 import { TelegramArchivedChat, TelegramChatMedia } from '../types';
 import { api } from '../services/api';
@@ -62,6 +64,14 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
   const [activeMediaIndex, setActiveMediaIndex] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Audio Playback State
+  const [playingAudioId, setPlayingAudioId] = useState<number | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioProgress, setAudioProgress] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Format bytes helper
@@ -82,6 +92,87 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
       day: 'numeric',
       year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
     });
+  };
+
+  // Format seconds to mm:ss
+  const formatDuration = (secs: number) => {
+    if (!secs || isNaN(secs) || secs < 0) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  // Audio Event Handlers
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const handleTimeUpdate = () => {
+      if (audio.duration) {
+        setAudioCurrentTime(audio.currentTime);
+        setAudioProgress((audio.currentTime / audio.duration) * 100);
+      }
+    };
+
+    const handleLoadedMetadata = () => {
+      setAudioDuration(audio.duration || 0);
+    };
+
+    const handleEnded = () => {
+      setIsPlaying(false);
+      setPlayingAudioId(null);
+      setAudioProgress(0);
+      setAudioCurrentTime(0);
+    };
+
+    const handleError = (e: any) => {
+      console.warn('Audio playback error:', e);
+      setIsPlaying(false);
+    };
+
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
+
+    return () => {
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
+    };
+  }, []);
+
+  // Play / Pause Audio Item
+  const handleTogglePlayAudio = (media: TelegramChatMedia, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    sfx.playClick();
+
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const url = api.getChatMediaStreamUrl(media.chatId, media.id);
+
+    if (playingAudioId === media.id) {
+      if (isPlaying) {
+        audio.pause();
+        setIsPlaying(false);
+      } else {
+        audio.play().catch(console.warn);
+        setIsPlaying(true);
+      }
+    } else {
+      setPlayingAudioId(media.id);
+      audio.src = url;
+      audio.currentTime = 0;
+      audio
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch((err) => {
+          console.warn('Playback failed:', err);
+          setIsPlaying(false);
+        });
+    }
   };
 
   // Fetch archived chats
@@ -166,6 +257,12 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
       fetchChatStats(selectedChat.id);
       fetchChatMedia(selectedChat.id, activeTab, false);
     }
+    // Stop audio when changing chat
+    if (audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+      setPlayingAudioId(null);
+    }
   }, [selectedChat, activeTab, fetchChatStats, fetchChatMedia]);
 
   // Load next batch
@@ -209,8 +306,10 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
     }
     if (activeTab === 'media') {
       const parts: string[] = [];
-      if (chatStats.photos > 0) parts.push(`${chatStats.photos.toLocaleString()} photo${chatStats.photos > 1 ? 's' : ''}`);
-      if (chatStats.videos > 0) parts.push(`${chatStats.videos.toLocaleString()} video${chatStats.videos > 1 ? 's' : ''}`);
+      if (chatStats.photos > 0)
+        parts.push(`${chatStats.photos.toLocaleString()} photo${chatStats.photos > 1 ? 's' : ''}`);
+      if (chatStats.videos > 0)
+        parts.push(`${chatStats.videos.toLocaleString()} video${chatStats.videos > 1 ? 's' : ''}`);
       return parts.length > 0 ? parts.join(', ') : `${chatStats.media || mediaList.length} media items`;
     }
     if (activeTab === 'files') {
@@ -267,6 +366,9 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
         background: 'var(--bg-main, #f8fafc)',
       }}
     >
+      {/* Hidden Global Audio Element for Background/Inline Playback */}
+      <audio ref={audioRef} preload="metadata" />
+
       {/* Top Header Bar */}
       <div
         style={{
@@ -943,6 +1045,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   const isImage = media.type === 'image';
                   const isVideo = media.type === 'video';
                   const isAudio = media.type === 'audio';
+                  const isCurrentPlaying = playingAudioId === media.id && isPlaying;
                   const fileName = media.fileName || media.name || `media_${media.id}`;
                   const streamUrl = api.getChatMediaStreamUrl(media.chatId, media.id);
 
@@ -955,7 +1058,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                       }}
                       style={{
                         background: '#ffffff',
-                        border: '1px solid #e2e8f0',
+                        border: isCurrentPlaying ? '1.5px solid #6366f1' : '1px solid #e2e8f0',
                         borderRadius: '16px',
                         overflow: 'hidden',
                         display: 'flex',
@@ -963,17 +1066,19 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                         cursor: 'pointer',
                         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                         position: 'relative',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                        boxShadow: isCurrentPlaying
+                          ? '0 10px 25px rgba(99, 102, 241, 0.15)'
+                          : '0 2px 6px rgba(0,0,0,0.02)',
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.transform = 'translateY(-2px)';
                         e.currentTarget.style.boxShadow = '0 10px 20px rgba(0,0,0,0.06)';
-                        e.currentTarget.style.borderColor = '#cbd5e1';
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.transform = 'none';
-                        e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.02)';
-                        e.currentTarget.style.borderColor = '#e2e8f0';
+                        e.currentTarget.style.boxShadow = isCurrentPlaying
+                          ? '0 10px 25px rgba(99, 102, 241, 0.15)'
+                          : '0 2px 6px rgba(0,0,0,0.02)';
                       }}
                     >
                       {/* Media Preview Box */}
@@ -1050,13 +1155,62 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                               flexDirection: 'column',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
+                              background: isCurrentPlaying
+                                ? 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)'
+                                : 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
                               color: '#ffffff',
-                              gap: '0.5rem',
+                              gap: '0.65rem',
+                              padding: '1rem',
                             }}
                           >
-                            <Mic size={32} />
-                            <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>VOICE NOTE</span>
+                            {/* Interactive Play/Pause Button */}
+                            <button
+                              onClick={(e) => handleTogglePlayAudio(media, e)}
+                              style={{
+                                width: '46px',
+                                height: '46px',
+                                borderRadius: '50%',
+                                background: '#ffffff',
+                                border: 'none',
+                                color: '#4f46e5',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                                transition: 'transform 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.08)')}
+                              onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                            >
+                              {isCurrentPlaying ? (
+                                <Pause size={20} fill="#4f46e5" />
+                              ) : (
+                                <Play size={20} fill="#4f46e5" style={{ marginLeft: '2px' }} />
+                              )}
+                            </button>
+
+                            {/* Soundwave animation when playing */}
+                            {isCurrentPlaying ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '3px', height: '14px' }}>
+                                {[1, 2, 3, 4, 5].map((b) => (
+                                  <div
+                                    key={b}
+                                    style={{
+                                      width: '3px',
+                                      background: '#ffffff',
+                                      borderRadius: '2px',
+                                      height: '100%',
+                                      animation: `pulse 0.6s ease-in-out infinite alternate ${b * 0.1}s`,
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '0.74rem', fontWeight: 700, letterSpacing: '0.02em' }}>
+                                VOICE NOTE
+                              </span>
+                            )}
                           </div>
                         ) : (
                           <div
@@ -1104,7 +1258,9 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                           }}
                           title="Download file"
                           onMouseEnter={(e) => (e.currentTarget.style.background = '#2481cc')}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(15, 23, 42, 0.75)')}
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.background = 'rgba(15, 23, 42, 0.75)')
+                          }
                         >
                           <Download size={14} />
                         </button>
@@ -1178,6 +1334,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   const isImage = media.type === 'image';
                   const isVideo = media.type === 'video';
                   const isAudio = media.type === 'audio';
+                  const isCurrentPlaying = playingAudioId === media.id && isPlaying;
                   const fileName = media.fileName || media.name || `media_${media.id}`;
 
                   return (
@@ -1195,9 +1352,14 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                         borderBottom: '1px solid #f1f5f9',
                         cursor: 'pointer',
                         transition: 'background 0.15s ease',
+                        background: isCurrentPlaying ? '#f5f3ff' : '#ffffff',
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = isCurrentPlaying ? '#ede9fe' : '#f8fafc')
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = isCurrentPlaying ? '#f5f3ff' : '#ffffff')
+                      }
                     >
                       <div>
                         {isImage ? (
@@ -1205,7 +1367,25 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                         ) : isVideo ? (
                           <Film size={18} color="#8b5cf6" />
                         ) : isAudio ? (
-                          <Music size={18} color="#10b981" />
+                          <button
+                            onClick={(e) => handleTogglePlayAudio(media, e)}
+                            style={{
+                              border: 'none',
+                              background: 'transparent',
+                              color: '#6366f1',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: 0,
+                            }}
+                          >
+                            {isCurrentPlaying ? (
+                              <Pause size={18} fill="#6366f1" />
+                            ) : (
+                              <Play size={18} fill="#6366f1" />
+                            )}
+                          </button>
                         ) : (
                           <FileText size={18} color="#f59e0b" />
                         )}
@@ -1215,7 +1395,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                         style={{
                           fontWeight: 600,
                           fontSize: '0.86rem',
-                          color: '#0f172a',
+                          color: isCurrentPlaying ? '#4f46e5' : '#0f172a',
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -1233,7 +1413,24 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                         {formatDate(media.date)}
                       </div>
 
-                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.35rem' }}>
+                        {isAudio && (
+                          <button
+                            onClick={(e) => handleTogglePlayAudio(media, e)}
+                            style={{
+                              padding: '6px',
+                              borderRadius: '8px',
+                              border: '1px solid #e2e8f0',
+                              background: '#ffffff',
+                              color: '#6366f1',
+                              cursor: 'pointer',
+                              display: 'flex',
+                            }}
+                            title="Play Voice"
+                          >
+                            {isCurrentPlaying ? <Pause size={14} /> : <Play size={14} />}
+                          </button>
+                        )}
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -1509,37 +1706,120 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   flexDirection: 'column',
                   alignItems: 'center',
                   gap: '1.5rem',
-                  width: '420px',
+                  width: '440px',
+                  backdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(255,255,255,0.12)',
                 }}
               >
+                {/* Voice Avatar & Animated Waves */}
                 <div
                   style={{
-                    width: '72px',
-                    height: '72px',
+                    position: 'relative',
+                    width: '84px',
+                    height: '84px',
                     borderRadius: '50%',
-                    background: '#6366f1',
+                    background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: '#ffffff',
+                    boxShadow: '0 8px 24px rgba(99, 102, 241, 0.35)',
                   }}
                 >
-                  <Music size={36} />
+                  {playingAudioId === activeMedia.id && isPlaying ? (
+                    <Volume2 size={40} />
+                  ) : (
+                    <Mic size={40} />
+                  )}
                 </div>
-                <div style={{ textAlign: 'center', color: '#ffffff' }}>
+
+                <div style={{ textAlign: 'center', color: '#ffffff', width: '100%' }}>
                   <h4 style={{ margin: '0 0 0.35rem', fontSize: '1.1rem' }}>
                     {activeMedia.fileName || activeMedia.name}
                   </h4>
                   <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>
-                    {formatBytes(activeMedia.size)}
+                    {formatBytes(activeMedia.size)} • {formatDate(activeMedia.date)}
                   </span>
                 </div>
-                <audio
-                  src={api.getChatMediaStreamUrl(activeMedia.chatId, activeMedia.id)}
-                  controls
-                  autoPlay
-                  style={{ width: '100%' }}
-                />
+
+                {/* Big Interactive Audio Play / Pause Button with Scrubber */}
+                <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <button
+                      onClick={() => handleTogglePlayAudio(activeMedia)}
+                      style={{
+                        width: '54px',
+                        height: '54px',
+                        borderRadius: '50%',
+                        background: '#ffffff',
+                        border: 'none',
+                        color: '#4f46e5',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        boxShadow: '0 6px 16px rgba(0,0,0,0.25)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {playingAudioId === activeMedia.id && isPlaying ? (
+                        <Pause size={24} fill="#4f46e5" />
+                      ) : (
+                        <Play size={24} fill="#4f46e5" style={{ marginLeft: '2px' }} />
+                      )}
+                    </button>
+
+                    {/* Progress slider */}
+                    <div style={{ flex: 1 }}>
+                      <div
+                        onClick={(e) => {
+                          if (playingAudioId === activeMedia.id && audioRef.current && audioDuration > 0) {
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const clickX = e.clientX - rect.left;
+                            const newPct = clickX / rect.width;
+                            audioRef.current.currentTime = newPct * audioDuration;
+                          }
+                        }}
+                        style={{
+                          height: '8px',
+                          background: 'rgba(255,255,255,0.2)',
+                          borderRadius: '9999px',
+                          overflow: 'hidden',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <div
+                          style={{
+                            height: '100%',
+                            width: `${playingAudioId === activeMedia.id ? audioProgress : 0}%`,
+                            background: '#6366f1',
+                            borderRadius: '9999px',
+                            transition: 'width 0.1s linear',
+                          }}
+                        />
+                      </div>
+
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          marginTop: '0.4rem',
+                          fontSize: '0.74rem',
+                          color: 'rgba(255,255,255,0.6)',
+                        }}
+                      >
+                        <span>
+                          {playingAudioId === activeMedia.id ? formatDuration(audioCurrentTime) : '0:00'}
+                        </span>
+                        <span>
+                          {playingAudioId === activeMedia.id && audioDuration > 0
+                            ? formatDuration(audioDuration)
+                            : '--:--'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
               <div

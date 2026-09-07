@@ -33,7 +33,15 @@ export class TelegramController {
     const totalSize = buffer.length;
     const rangeHeader = req.headers.range;
 
-    const mimeType = file.mimeType || 'application/octet-stream';
+    let mimeType = file.mimeType || 'application/octet-stream';
+    if (mimeType.includes(';')) {
+      mimeType = mimeType.split(';')[0].trim();
+    }
+    if (file.name && file.name.endsWith('.ogg') && (mimeType === 'application/octet-stream' || mimeType === 'audio/opus')) {
+      mimeType = 'audio/ogg';
+    } else if (file.name && file.name.endsWith('.mp3') && mimeType === 'application/octet-stream') {
+      mimeType = 'audio/mpeg';
+    }
     const filename = encodeURIComponent(file.name || 'media');
 
     if (rangeHeader) {

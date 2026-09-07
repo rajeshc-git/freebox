@@ -335,18 +335,32 @@ export class TelegramClientService {
         const fileNameAttr = doc.attributes?.find(
           (a: any) => a.className === 'DocumentAttributeFilename' || a.fileName,
         );
+        const audioAttr = doc.attributes?.find(
+          (a: any) => a.className === 'DocumentAttributeAudio' || a.duration !== undefined || a.voice !== undefined,
+        );
+
         if (fileNameAttr?.fileName) {
           name = fileNameAttr.fileName;
+        } else if (audioAttr) {
+          name = audioAttr.title || (audioAttr.voice ? `Voice Message (${audioAttr.duration || 0}s)` : `Audio ${msg.id}.mp3`);
         } else if (mimeType.startsWith('image/')) {
           name = `photo_${msg.id}.${mimeType.split('/')[1] || 'jpg'}`;
         } else if (mimeType.startsWith('video/')) {
           name = `video_${msg.id}.${mimeType.split('/')[1] || 'mp4'}`;
         }
 
-        if (mimeType.startsWith('image/')) type = 'image';
-        else if (mimeType.startsWith('video/')) type = 'video';
-        else if (mimeType.startsWith('audio/')) type = 'audio';
-        else type = 'document';
+        if (mimeType.startsWith('image/')) {
+          type = 'image';
+        } else if (mimeType.startsWith('video/')) {
+          type = 'video';
+        } else if (mimeType.startsWith('audio/') || audioAttr) {
+          type = 'audio';
+          if (!mimeType.startsWith('audio/')) {
+            mimeType = 'audio/ogg';
+          }
+        } else {
+          type = 'document';
+        }
       } else if (photo) {
         type = 'image';
         mimeType = 'image/jpeg';
@@ -409,10 +423,22 @@ export class TelegramClientService {
     const doc = (message.media as any)?.document;
     if (doc) {
       mimeType = doc.mimeType || 'application/octet-stream';
+      const audioAttr = doc.attributes?.find(
+        (a: any) => a.className === 'DocumentAttributeAudio' || a.duration !== undefined || a.voice !== undefined,
+      );
       const fileNameAttr = doc.attributes?.find(
         (a: any) => a.className === 'DocumentAttributeFilename' || a.fileName,
       );
-      if (fileNameAttr?.fileName) fileName = fileNameAttr.fileName;
+
+      if (fileNameAttr?.fileName) {
+        fileName = fileNameAttr.fileName;
+      } else if (audioAttr) {
+        fileName = audioAttr.voice ? `voice_${messageId}.ogg` : `audio_${messageId}.mp3`;
+      }
+
+      if (audioAttr && (!mimeType || mimeType === 'application/octet-stream')) {
+        mimeType = 'audio/ogg';
+      }
     } else if ((message.media as any)?.photo) {
       mimeType = 'image/jpeg';
       fileName = `photo_${messageId}.jpg`;
