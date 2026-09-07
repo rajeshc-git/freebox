@@ -134,7 +134,7 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
       style={{
         flex: 1,
         overflowY: 'auto',
-        padding: '1rem',
+        padding: '1.25rem',
         background: '#f8fafc',
         display: 'flex',
         flexDirection: 'column',
@@ -154,44 +154,44 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
       <div
         style={{
           background: '#ffffff',
-          borderRadius: 18,
-          padding: '1rem 1.25rem',
+          borderRadius: 20,
+          padding: '1.25rem 1.5rem',
           border: '1px solid #e2e8f0',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.03)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.85rem',
-          marginBottom: '1.25rem',
+          gap: '1rem',
+          marginBottom: '1.5rem',
         }}
       >
         {/* Header Title Row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div
               style={{
-                width: 38,
-                height: 38,
-                borderRadius: 10,
+                width: 42,
+                height: 42,
+                borderRadius: 12,
                 background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
                 color: '#ffffff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 2px 8px rgba(37,99,235,0.25)',
+                boxShadow: '0 4px 12px rgba(37,99,235,0.25)',
                 flexShrink: 0,
               }}
             >
-              <Sparkles size={20} />
+              <Sparkles size={22} />
             </div>
             <div>
-              <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
-                Live Photos
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
+                Live Photos Studio
               </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem', color: '#64748b' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: '#64748b', marginTop: 2 }}>
                 <span>Apple LivePhotosKit JS</span>
                 <span>•</span>
                 <span style={{ color: 'var(--tg-blue)', fontWeight: 700 }}>
-                  {pairs.length} {pairs.length === 1 ? 'Pair' : 'Pairs'}
+                  {pairs.length} {pairs.length === 1 ? 'Live Photo' : 'Live Photos'}
                 </span>
               </div>
             </div>
@@ -206,21 +206,21 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '0.4rem',
+              gap: '0.45rem',
               background: 'var(--tg-blue)',
               color: '#ffffff',
               border: 'none',
-              padding: '0.55rem 0.95rem',
+              padding: '0.6rem 1.15rem',
               borderRadius: 9999,
-              fontSize: '0.82rem',
+              fontSize: '0.84rem',
               fontWeight: 700,
               cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(36,129,204,0.25)',
+              boxShadow: '0 2px 10px rgba(36,129,204,0.25)',
               flexShrink: 0,
             }}
           >
-            <Upload size={14} />
-            <span className="hide-text-on-mobile">Upload Pair</span>
+            <Upload size={15} />
+            <span className="hide-text-on-mobile">Upload Live Photo</span>
           </button>
         </div>
 
@@ -244,21 +244,21 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.45rem',
+              gap: '0.5rem',
               background: activeTab === 'gallery' ? '#ffffff' : 'transparent',
               color: activeTab === 'gallery' ? 'var(--tg-blue)' : '#64748b',
               border: 'none',
               borderRadius: 10,
-              padding: '0.55rem 0.75rem',
-              fontSize: '0.84rem',
+              padding: '0.6rem 0.85rem',
+              fontSize: '0.86rem',
               fontWeight: 700,
               cursor: 'pointer',
               boxShadow: activeTab === 'gallery' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
               transition: 'all 0.15s ease',
             }}
           >
-            <ImageIcon size={15} />
-            <span>Live Photos ({pairs.length})</span>
+            <ImageIcon size={16} />
+            <span>Live Photos Gallery ({pairs.length})</span>
           </button>
 
           <button
@@ -271,20 +271,20 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '0.45rem',
+              gap: '0.5rem',
               background: activeTab === 'upload_guide' ? '#ffffff' : 'transparent',
               color: activeTab === 'upload_guide' ? 'var(--tg-blue)' : '#64748b',
               border: 'none',
               borderRadius: 10,
-              padding: '0.55rem 0.75rem',
-              fontSize: '0.84rem',
+              padding: '0.6rem 0.85rem',
+              fontSize: '0.86rem',
               fontWeight: 700,
               cursor: 'pointer',
               boxShadow: activeTab === 'upload_guide' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
               transition: 'all 0.15s ease',
             }}
           >
-            <Smartphone size={15} />
+            <Smartphone size={16} />
             <span>Upload & iPhone Guide</span>
           </button>
         </div>
@@ -299,8 +299,8 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
               style={{
                 background: '#ffffff',
                 border: '1.5px dashed #cbd5e1',
-                borderRadius: 18,
-                padding: '3rem 1.5rem',
+                borderRadius: 20,
+                padding: '3.5rem 1.5rem',
                 textAlign: 'center',
                 display: 'flex',
                 flexDirection: 'column',
@@ -311,26 +311,26 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
             >
               <div
                 style={{
-                  width: 60,
-                  height: 60,
+                  width: 68,
+                  height: 68,
                   borderRadius: '50%',
                   background: '#eff6ff',
                   color: 'var(--tg-blue)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  marginBottom: '1rem',
+                  marginBottom: '1.25rem',
                 }}
               >
-                <Sparkles size={28} />
+                <Sparkles size={32} />
               </div>
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.35rem' }}>
+              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.4rem' }}>
                 No Live Photos Paired Yet
               </h3>
-              <p style={{ color: '#64748b', fontSize: '0.84rem', maxWidth: 360, lineHeight: 1.45, marginBottom: '1.25rem' }}>
-                Upload matching <code>.HEIC</code> (photo) + <code>.MOV</code> (motion video) files from your iPhone to experience live previews.
+              <p style={{ color: '#64748b', fontSize: '0.88rem', maxWidth: 420, lineHeight: 1.5, marginBottom: '1.5rem' }}>
+                Upload matching <code>.HEIC</code> (photo) + <code>.MOV</code> (motion video) files from your iPhone to experience live interactive previews.
               </p>
-              <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'center' }}>
                 <button
                   onClick={() => {
                     sfx.playClick();
@@ -340,18 +340,18 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
                     background: 'var(--tg-blue)',
                     color: '#fff',
                     border: 'none',
-                    padding: '0.65rem 1.25rem',
+                    padding: '0.7rem 1.4rem',
                     borderRadius: 12,
                     fontWeight: 700,
-                    fontSize: '0.86rem',
+                    fontSize: '0.9rem',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 6,
-                    boxShadow: '0 2px 8px rgba(36,129,204,0.25)',
+                    boxShadow: '0 2px 10px rgba(36,129,204,0.25)',
                   }}
                 >
-                  <Upload size={15} /> Upload Files
+                  <Upload size={16} /> Upload Live Photos
                 </button>
                 <button
                   onClick={() => {
@@ -362,27 +362,28 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
                     background: '#f1f5f9',
                     color: '#334155',
                     border: '1px solid #cbd5e1',
-                    padding: '0.65rem 1.15rem',
+                    padding: '0.7rem 1.3rem',
                     borderRadius: 12,
                     fontWeight: 600,
-                    fontSize: '0.86rem',
+                    fontSize: '0.9rem',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: 6,
                   }}
                 >
-                  <Smartphone size={15} /> View iPhone Guide
+                  <Smartphone size={16} /> View iPhone Guide
                 </button>
               </div>
             </div>
           ) : (
-            /* Responsive Grid: 2 columns on small screens, auto-fill on desktop */
+            /* Spacious Grid: Big preview cards on desktop (300px+), responsive 2-column on mobile (160px) */
             <div
+              className="live-photos-grid"
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
-                gap: '0.85rem',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
+                gap: '1.25rem',
               }}
             >
               {pairs.map((pair) => (
@@ -401,7 +402,7 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
 
       {/* TAB 2: Upload Zone & iPhone Guide */}
       {activeTab === 'upload_guide' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           {/* Drag & Drop Upload Zone */}
           <div
             onDragOver={(e) => {
@@ -413,8 +414,8 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
             style={{
               background: isDragOver ? '#eff6ff' : '#ffffff',
               border: isDragOver ? '2px dashed var(--tg-blue)' : '2px dashed #cbd5e1',
-              borderRadius: 18,
-              padding: '2.25rem 1.25rem',
+              borderRadius: 20,
+              padding: '2.5rem 1.5rem',
               textAlign: 'center',
               display: 'flex',
               flexDirection: 'column',
@@ -426,62 +427,62 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
           >
             <div
               style={{
-                width: 54,
-                height: 54,
+                width: 60,
+                height: 60,
                 borderRadius: '50%',
                 background: '#e0f2fe',
                 color: 'var(--tg-blue)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                marginBottom: '1rem',
+                marginBottom: '1.25rem',
               }}
             >
-              <Upload size={26} />
+              <Upload size={28} />
             </div>
 
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.35rem' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.4rem' }}>
               Drop .HEIC + .MOV Files Here
             </h3>
 
-            <p style={{ color: '#64748b', fontSize: '0.82rem', maxWidth: 380, lineHeight: 1.45, marginBottom: '1.25rem' }}>
-              Select both the still photo (<code>.HEIC</code>) and companion video (<code>.MOV</code>) together.
+            <p style={{ color: '#64748b', fontSize: '0.88rem', maxWidth: 420, lineHeight: 1.5, marginBottom: '1.5rem' }}>
+              Select both the still photo (<code>.HEIC</code>) and companion video (<code>.MOV</code>) together from your computer or iPhone.
             </p>
 
             {/* Pair Badges Indicator */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1.5rem' }}>
               <span
                 style={{
                   background: '#f1f5f9',
                   color: '#0f172a',
-                  padding: '0.25rem 0.65rem',
-                  borderRadius: 6,
-                  fontSize: '0.74rem',
+                  padding: '0.35rem 0.85rem',
+                  borderRadius: 8,
+                  fontSize: '0.82rem',
                   fontWeight: 700,
                   border: '1px solid #e2e8f0',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 4,
+                  gap: 6,
                 }}
               >
-                <ImageIcon size={12} color="var(--tg-blue)" /> .HEIC Photo
+                <ImageIcon size={14} color="var(--tg-blue)" /> .HEIC Photo
               </span>
               <span style={{ color: '#94a3b8', fontWeight: 800 }}>+</span>
               <span
                 style={{
                   background: '#f1f5f9',
                   color: '#0f172a',
-                  padding: '0.25rem 0.65rem',
-                  borderRadius: 6,
-                  fontSize: '0.74rem',
+                  padding: '0.35rem 0.85rem',
+                  borderRadius: 8,
+                  fontSize: '0.82rem',
                   fontWeight: 700,
                   border: '1px solid #e2e8f0',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 4,
+                  gap: 6,
                 }}
               >
-                <Film size={12} color="#8b5cf6" /> .MOV Video
+                <Film size={14} color="#8b5cf6" /> .MOV Video
               </span>
             </div>
 
@@ -494,12 +495,12 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
                 background: 'var(--tg-blue)',
                 color: '#fff',
                 border: 'none',
-                padding: '0.7rem 1.4rem',
+                padding: '0.75rem 1.6rem',
                 borderRadius: 12,
                 fontWeight: 700,
-                fontSize: '0.88rem',
+                fontSize: '0.92rem',
                 cursor: 'pointer',
-                boxShadow: '0 4px 12px rgba(36,129,204,0.25)',
+                boxShadow: '0 4px 14px rgba(36,129,204,0.25)',
               }}
             >
               Select Files to Upload
@@ -510,43 +511,43 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
           <div
             style={{
               background: '#ffffff',
-              borderRadius: 18,
+              borderRadius: 20,
               border: '1px solid #e2e8f0',
-              padding: '1.25rem',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+              padding: '1.5rem',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-              <Smartphone size={18} color="var(--tg-blue)" />
-              <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1.25rem' }}>
+              <Smartphone size={22} color="var(--tg-blue)" />
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
                 How to Export Live Photos on iPhone
               </h3>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
               {/* Step 1 */}
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'flex-start',
-                  gap: '0.75rem',
+                  gap: '0.85rem',
                   background: '#f8fafc',
-                  padding: '0.85rem 1rem',
-                  borderRadius: 12,
+                  padding: '1rem 1.15rem',
+                  borderRadius: 14,
                   border: '1px solid #f1f5f9',
                 }}
               >
                 <div
                   style={{
-                    width: 26,
-                    height: 26,
+                    width: 28,
+                    height: 28,
                     borderRadius: '50%',
                     background: '#eff6ff',
                     color: 'var(--tg-blue)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '0.78rem',
+                    fontSize: '0.82rem',
                     fontWeight: 800,
                     flexShrink: 0,
                   }}
@@ -554,10 +555,10 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
                   1
                 </div>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.84rem', color: '#0f172a', marginBottom: 2 }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a', marginBottom: 3 }}>
                     Open Photos & Tap Share
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b', lineHeight: 1.4 }}>
+                  <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b', lineHeight: 1.45 }}>
                     Open the <strong>Photos</strong> app on your iPhone, select your Live Photo, and tap the <strong>Share</strong> (📤) button.
                   </p>
                 </div>
@@ -568,24 +569,24 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
                 style={{
                   display: 'flex',
                   alignItems: 'flex-start',
-                  gap: '0.75rem',
+                  gap: '0.85rem',
                   background: '#f8fafc',
-                  padding: '0.85rem 1rem',
-                  borderRadius: 12,
+                  padding: '1rem 1.15rem',
+                  borderRadius: 14,
                   border: '1px solid #f1f5f9',
                 }}
               >
                 <div
                   style={{
-                    width: 26,
-                    height: 26,
+                    width: 28,
+                    height: 28,
                     borderRadius: '50%',
                     background: '#eff6ff',
                     color: 'var(--tg-blue)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '0.78rem',
+                    fontSize: '0.82rem',
                     fontWeight: 800,
                     flexShrink: 0,
                   }}
@@ -593,10 +594,10 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
                   2
                 </div>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.84rem', color: '#0f172a', marginBottom: 2 }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a', marginBottom: 3 }}>
                     Export Unmodified Original
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b', lineHeight: 1.4 }}>
+                  <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b', lineHeight: 1.45 }}>
                     Scroll down in the share sheet and tap <strong>"Export Unmodified Original"</strong> ➔ Save to <strong>Files</strong>. This preserves both <code>.HEIC</code> and <code>.MOV</code>.
                   </p>
                 </div>
@@ -607,24 +608,24 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
                 style={{
                   display: 'flex',
                   alignItems: 'flex-start',
-                  gap: '0.75rem',
+                  gap: '0.85rem',
                   background: '#f8fafc',
-                  padding: '0.85rem 1rem',
-                  borderRadius: 12,
+                  padding: '1rem 1.15rem',
+                  borderRadius: 14,
                   border: '1px solid #f1f5f9',
                 }}
               >
                 <div
                   style={{
-                    width: 26,
-                    height: 26,
+                    width: 28,
+                    height: 28,
                     borderRadius: '50%',
                     background: '#ecfdf5',
                     color: '#059669',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '0.78rem',
+                    fontSize: '0.82rem',
                     fontWeight: 800,
                     flexShrink: 0,
                   }}
@@ -632,10 +633,10 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
                   3
                 </div>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.84rem', color: '#0f172a', marginBottom: 2 }}>
+                  <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a', marginBottom: 3 }}>
                     Upload & Play in FreeBox
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b', lineHeight: 1.4 }}>
+                  <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b', lineHeight: 1.45 }}>
                     Tap <strong>Select Files to Upload</strong> and select both files together. FreeBox will automatically pair them with instant Apple Live motion and sound!
                   </p>
                 </div>
@@ -645,7 +646,7 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
         </div>
       )}
 
-      {/* Expanded Live Photo Lightbox Player (Ultra-Mobile Friendly) */}
+      {/* Expanded Live Photo Lightbox Player (Ultra-Clean, Apple Style) */}
       {selectedPair && (
         <LivePhotoLightbox
           pair={selectedPair}
@@ -773,7 +774,7 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
   );
 };
 
-// Subcomponent: Live Photo Grid Card (Optimized for Mobile with Delete)
+// Subcomponent: Live Photo Grid Card (Big on Desktop, Clean on Mobile)
 const LivePhotoCard: React.FC<{
   pair: LivePhotoPair;
   onOpenLightbox: () => void;
@@ -817,13 +818,13 @@ const LivePhotoCard: React.FC<{
       onClick={onOpenLightbox}
       style={{
         background: '#ffffff',
-        borderRadius: 14,
+        borderRadius: 18,
         overflow: 'hidden',
         border: '1px solid #e2e8f0',
-        boxShadow: isPlaying ? '0 8px 24px rgba(36,129,204,0.18)' : '0 2px 6px rgba(0,0,0,0.03)',
+        boxShadow: isPlaying ? '0 12px 32px rgba(36,129,204,0.22)' : '0 2px 8px rgba(0,0,0,0.04)',
         cursor: 'pointer',
-        transition: 'all 0.18s ease',
-        transform: isPlaying ? 'scale(1.02)' : 'none',
+        transition: 'all 0.2s ease',
+        transform: isPlaying ? 'translateY(-2px)' : 'none',
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
@@ -834,8 +835,8 @@ const LivePhotoCard: React.FC<{
         style={{
           position: 'relative',
           width: '100%',
-          aspectRatio: '1 / 1',
-          maxHeight: 220,
+          aspectRatio: '4 / 3',
+          minHeight: 220,
           background: '#0f172a',
           overflow: 'hidden',
         }}
@@ -874,17 +875,17 @@ const LivePhotoCard: React.FC<{
           onClick={togglePlayback}
           style={{
             position: 'absolute',
-            top: '0.5rem',
-            left: '0.5rem',
+            top: '0.65rem',
+            left: '0.65rem',
             background: isPlaying ? 'rgba(36,129,204,0.92)' : 'rgba(0,0,0,0.65)',
-            backdropFilter: 'blur(6px)',
+            backdropFilter: 'blur(8px)',
             color: '#ffffff',
-            padding: '0.2rem 0.45rem',
+            padding: '0.25rem 0.6rem',
             borderRadius: 9999,
             display: 'flex',
             alignItems: 'center',
-            gap: 4,
-            fontSize: '0.65rem',
+            gap: 5,
+            fontSize: '0.72rem',
             fontWeight: 800,
             letterSpacing: '0.04em',
             zIndex: 2,
@@ -892,8 +893,8 @@ const LivePhotoCard: React.FC<{
         >
           <span
             style={{
-              width: 6,
-              height: 6,
+              width: 7,
+              height: 7,
               borderRadius: '50%',
               background: isPlaying ? '#38bdf8' : '#ffffff',
               display: 'inline-block',
@@ -903,65 +904,101 @@ const LivePhotoCard: React.FC<{
           LIVE
         </div>
 
-        {/* Delete Quick Action Button on Card */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete();
-          }}
-          title="Delete Live Photo"
+        {/* Top-Right Quick Action Buttons (Full Screen & Delete) */}
+        <div
           style={{
             position: 'absolute',
-            top: '0.5rem',
-            right: '0.5rem',
-            background: 'rgba(255, 255, 255, 0.9)',
-            backdropFilter: 'blur(4px)',
-            border: 'none',
-            borderRadius: 6,
-            padding: '0.3rem',
-            color: '#ef4444',
-            cursor: 'pointer',
+            top: '0.65rem',
+            right: '0.65rem',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+            gap: 5,
             zIndex: 2,
-            transition: 'all 0.15s ease',
           }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <Trash2 size={13} />
-        </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              sfx.playClick();
+              onOpenLightbox();
+            }}
+            title="Open Fullscreen"
+            style={{
+              background: 'rgba(255, 255, 255, 0.92)',
+              backdropFilter: 'blur(6px)',
+              border: 'none',
+              borderRadius: 8,
+              padding: '0.4rem',
+              color: '#334155',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--tg-blue)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = '#334155')}
+          >
+            <Maximize2 size={13} />
+          </button>
 
-        {/* Play indicator overlay on mobile */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+            title="Delete Live Photo Pair"
+            style={{
+              background: 'rgba(255, 255, 255, 0.92)',
+              backdropFilter: 'blur(6px)',
+              border: 'none',
+              borderRadius: 8,
+              padding: '0.4rem',
+              color: '#ef4444',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Trash2 size={13} />
+          </button>
+        </div>
+
+        {/* Play indicator overlay */}
         {!isPlaying && (
           <div
             style={{
               position: 'absolute',
-              bottom: '0.5rem',
-              right: '0.5rem',
-              background: 'rgba(0,0,0,0.5)',
+              bottom: '0.65rem',
+              right: '0.65rem',
+              background: 'rgba(0,0,0,0.55)',
               backdropFilter: 'blur(4px)',
               color: '#ffffff',
-              padding: '0.2rem 0.4rem',
-              borderRadius: 4,
-              fontSize: '0.65rem',
+              padding: '0.2rem 0.5rem',
+              borderRadius: 6,
+              fontSize: '0.68rem',
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
-              gap: 3,
+              gap: 4,
             }}
           >
-            <Play size={9} /> Live
+            <Play size={10} /> Live
           </div>
         )}
       </div>
 
       {/* Info Footer */}
-      <div style={{ padding: '0.65rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+      <div style={{ padding: '0.85rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
         <div
           style={{
             fontWeight: 700,
-            fontSize: '0.82rem',
+            fontSize: '0.92rem',
             color: '#0f172a',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
@@ -972,16 +1009,18 @@ const LivePhotoCard: React.FC<{
           {pair.baseName}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94a3b8' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.75rem', color: '#94a3b8' }}>
           <span>{(pair.size / (1024 * 1024)).toFixed(1)} MB</span>
-          <span style={{ color: '#059669', fontWeight: 600 }}>.HEIC+.MOV</span>
+          <span style={{ color: '#059669', fontWeight: 700, background: '#ecfdf5', padding: '0.1rem 0.4rem', borderRadius: 4, fontSize: '0.68rem' }}>
+            .HEIC + .MOV
+          </span>
         </div>
       </div>
     </div>
   );
 };
 
-// Subcomponent: Live Photo Lightbox (Ultra Mobile Responsive with Delete)
+// Subcomponent: Live Photo Fullscreen Lightbox (Ultra-Clean Apple Style)
 const LivePhotoLightbox: React.FC<{
   pair: LivePhotoPair;
   onClose: () => void;
@@ -990,7 +1029,6 @@ const LivePhotoLightbox: React.FC<{
 }> = ({ pair, onClose, onShare, onDelete }) => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
-  const [speed, setSpeed] = useState(1);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const togglePlay = () => {
@@ -1004,24 +1042,19 @@ const LivePhotoLightbox: React.FC<{
     }
   };
 
-  const handleSpeedChange = (spd: number) => {
-    setSpeed(spd);
-    if (videoRef.current) videoRef.current.playbackRate = spd;
-  };
-
   return (
     <div
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.9)',
-        backdropFilter: 'blur(12px)',
+        background: 'rgba(0,0,0,0.92)',
+        backdropFilter: 'blur(16px)',
         zIndex: 9999,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '1rem',
+        padding: '1.25rem',
         animation: 'fadeIn 0.2s ease',
       }}
       onClick={onClose}
@@ -1031,34 +1064,34 @@ const LivePhotoLightbox: React.FC<{
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: 900,
+          maxWidth: 960,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '0.5rem',
+          gap: '0.75rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, color: '#fff' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0, color: '#fff' }}>
           <div
             style={{
               background: 'var(--tg-blue)',
               color: '#fff',
-              padding: '0.2rem 0.5rem',
+              padding: '0.25rem 0.65rem',
               borderRadius: 9999,
-              fontSize: '0.72rem',
+              fontSize: '0.75rem',
               fontWeight: 800,
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
+              gap: 5,
               flexShrink: 0,
             }}
           >
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff', display: 'inline-block' }} />
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff', display: 'inline-block' }} />
             LIVE
           </div>
           <span
             style={{
-              fontSize: '0.92rem',
+              fontSize: '1rem',
               fontWeight: 700,
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -1069,79 +1102,101 @@ const LivePhotoLightbox: React.FC<{
           </span>
         </div>
 
-        {/* Actions: Download, Delete & Close */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexShrink: 0 }}>
+        {/* Header Actions: Audio Toggle, Downloads, Delete & Close */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+          {/* Sound Toggle */}
+          <button
+            onClick={() => setIsMuted(!isMuted)}
+            title={isMuted ? 'Unmute Audio' : 'Mute Audio'}
+            style={{
+              background: 'rgba(255,255,255,0.18)',
+              border: 'none',
+              color: '#fff',
+              padding: '0.45rem 0.75rem',
+              borderRadius: 10,
+              fontSize: '0.8rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              fontWeight: 600,
+            }}
+          >
+            {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+            <span className="hide-text-on-mobile">{isMuted ? 'Muted' : 'Sound'}</span>
+          </button>
+
           <a
             href={api.getFileDownloadUrl(pair.photoFile.id)}
             download={pair.photoFile.name}
-            title="Download .HEIC"
+            title="Download .HEIC Photo"
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
-              background: 'rgba(255,255,255,0.15)',
+              gap: 5,
+              background: 'rgba(255,255,255,0.18)',
               color: '#fff',
-              padding: '0.4rem 0.65rem',
-              borderRadius: 8,
-              fontSize: '0.75rem',
+              padding: '0.45rem 0.75rem',
+              borderRadius: 10,
+              fontSize: '0.8rem',
               textDecoration: 'none',
               fontWeight: 600,
             }}
           >
-            <Download size={13} />
+            <Download size={14} />
             <span className="hide-text-on-mobile">.HEIC</span>
           </a>
 
           <a
             href={api.getFileDownloadUrl(pair.videoFile.id)}
             download={pair.videoFile.name}
-            title="Download .MOV"
+            title="Download .MOV Video"
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
-              background: 'rgba(255,255,255,0.15)',
+              gap: 5,
+              background: 'rgba(255,255,255,0.18)',
               color: '#fff',
-              padding: '0.4rem 0.65rem',
-              borderRadius: 8,
-              fontSize: '0.75rem',
+              padding: '0.45rem 0.75rem',
+              borderRadius: 10,
+              fontSize: '0.8rem',
               textDecoration: 'none',
               fontWeight: 600,
             }}
           >
-            <Download size={13} />
+            <Download size={14} />
             <span className="hide-text-on-mobile">.MOV</span>
           </a>
 
           <button
             onClick={onDelete}
-            title="Delete Live Photo Pair"
+            title="Delete Live Photo"
             style={{
-              background: 'rgba(239, 68, 68, 0.3)',
+              background: 'rgba(239, 68, 68, 0.35)',
               border: '1px solid rgba(239, 68, 68, 0.5)',
               color: '#fca5a5',
-              padding: '0.4rem 0.65rem',
-              borderRadius: 8,
-              fontSize: '0.75rem',
+              padding: '0.45rem 0.75rem',
+              borderRadius: 10,
+              fontSize: '0.8rem',
               display: 'flex',
               alignItems: 'center',
-              gap: 4,
+              gap: 5,
               cursor: 'pointer',
               fontWeight: 600,
             }}
           >
-            <Trash2 size={13} />
+            <Trash2 size={14} />
             <span className="hide-text-on-mobile">Delete</span>
           </button>
 
           <button
             onClick={onClose}
             style={{
-              background: 'rgba(255,255,255,0.2)',
+              background: 'rgba(255,255,255,0.25)',
               border: 'none',
               color: '#fff',
-              width: 34,
-              height: 34,
+              width: 36,
+              height: 36,
               borderRadius: '50%',
               display: 'flex',
               alignItems: 'center',
@@ -1149,24 +1204,28 @@ const LivePhotoLightbox: React.FC<{
               cursor: 'pointer',
             }}
           >
-            <X size={18} />
+            <X size={20} />
           </button>
         </div>
       </div>
 
-      {/* Main Video Presentation Stage */}
+      {/* Main Live Photo Stage */}
       <div
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          togglePlay();
+        }}
         style={{
           position: 'relative',
-          maxWidth: '92vw',
-          maxHeight: '68vh',
-          borderRadius: 16,
+          maxWidth: '90vw',
+          maxHeight: '78vh',
+          borderRadius: 20,
           overflow: 'hidden',
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          boxShadow: '0 25px 70px rgba(0,0,0,0.7)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          cursor: 'pointer',
         }}
       >
         <video
@@ -1176,59 +1235,21 @@ const LivePhotoLightbox: React.FC<{
           loop
           playsInline
           muted={isMuted}
-          style={{ maxWidth: '100%', maxHeight: '68vh', objectFit: 'contain' }}
+          style={{ maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain' }}
         />
       </div>
 
-      {/* Bottom Floating Controls */}
+      {/* Minimal Footer Info Hint */}
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: 'rgba(255,255,255,0.15)',
-          backdropFilter: 'blur(16px)',
-          borderRadius: 9999,
-          padding: '0.4rem 1rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.85rem',
-          border: '1px solid rgba(255,255,255,0.2)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+          color: 'rgba(255,255,255,0.65)',
+          fontSize: '0.78rem',
+          fontWeight: 500,
+          letterSpacing: '0.02em',
         }}
       >
-        <button
-          onClick={togglePlay}
-          style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-        >
-          {isPlaying ? <Pause size={17} /> : <Play size={17} />}
-        </button>
-
-        <button
-          onClick={() => setIsMuted(!isMuted)}
-          style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-        >
-          {isMuted ? <VolumeX size={17} /> : <Volume2 size={17} />}
-        </button>
-
-        <div style={{ display: 'flex', gap: 2, background: 'rgba(0,0,0,0.25)', padding: 2, borderRadius: 9999 }}>
-          {[0.5, 1, 1.5, 2].map((spd) => (
-            <button
-              key={spd}
-              onClick={() => handleSpeedChange(spd)}
-              style={{
-                background: speed === spd ? 'var(--tg-blue)' : 'transparent',
-                border: 'none',
-                color: '#fff',
-                fontSize: '0.68rem',
-                fontWeight: 700,
-                padding: '0.15rem 0.4rem',
-                borderRadius: 9999,
-                cursor: 'pointer',
-              }}
-            >
-              {spd}x
-            </button>
-          ))}
-        </div>
+        Tap or click photo to pause / resume motion
       </div>
     </div>
   );
