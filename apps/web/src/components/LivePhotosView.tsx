@@ -20,6 +20,8 @@ import {
   FileCheck,
   Zap,
   Trash2,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { DriveFile } from '../types';
 import { api } from '../services/api';
@@ -37,6 +39,8 @@ export interface LivePhotoPair {
 
 interface LivePhotosViewProps {
   files: DriveFile[];
+  selectedIds?: string[];
+  onToggleSelectPair?: (pair: LivePhotoPair) => void;
   onUploadPair: (files: File[]) => void;
   onPreviewFile?: (file: DriveFile) => void;
   onShareFile?: (file: DriveFile) => void;
@@ -45,6 +49,8 @@ interface LivePhotosViewProps {
 
 export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
   files,
+  selectedIds = [],
+  onToggleSelectPair,
   onUploadPair,
   onShareFile,
   onDeletePair,
@@ -386,15 +392,20 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
                 gap: '1.25rem',
               }}
             >
-              {pairs.map((pair) => (
-                <LivePhotoCard
-                  key={pair.id}
-                  pair={pair}
-                  onOpenLightbox={() => setSelectedPair(pair)}
-                  onShare={() => onShareFile?.(pair.photoFile)}
-                  onDelete={() => setPairToDelete(pair)}
-                />
-              ))}
+              {pairs.map((pair) => {
+                const isSelected = selectedIds.includes(pair.photoFile.id) || selectedIds.includes(pair.videoFile.id);
+                return (
+                  <LivePhotoCard
+                    key={pair.id}
+                    pair={pair}
+                    isSelected={isSelected}
+                    onToggleSelect={() => onToggleSelectPair?.(pair)}
+                    onOpenLightbox={() => setSelectedPair(pair)}
+                    onShare={() => onShareFile?.(pair.photoFile)}
+                    onDelete={() => setPairToDelete(pair)}
+                  />
+                );
+              })}
             </div>
           )}
         </div>
@@ -777,10 +788,12 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
 // Subcomponent: Live Photo Grid Card (Big on Desktop, Clean on Mobile)
 const LivePhotoCard: React.FC<{
   pair: LivePhotoPair;
+  isSelected?: boolean;
+  onToggleSelect?: () => void;
   onOpenLightbox: () => void;
   onShare: () => void;
   onDelete: () => void;
-}> = ({ pair, onOpenLightbox, onShare, onDelete }) => {
+}> = ({ pair, isSelected = false, onToggleSelect, onOpenLightbox, onShare, onDelete }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -820,8 +833,12 @@ const LivePhotoCard: React.FC<{
         background: '#ffffff',
         borderRadius: 18,
         overflow: 'hidden',
-        border: '1px solid #e2e8f0',
-        boxShadow: isPlaying ? '0 12px 32px rgba(36,129,204,0.22)' : '0 2px 8px rgba(0,0,0,0.04)',
+        border: isSelected ? '2px solid var(--tg-blue)' : '1px solid #e2e8f0',
+        boxShadow: isSelected
+          ? '0 0 0 3px var(--tg-blue-glow)'
+          : isPlaying
+          ? '0 12px 32px rgba(36,129,204,0.22)'
+          : '0 2px 8px rgba(0,0,0,0.04)',
         cursor: 'pointer',
         transition: 'all 0.2s ease',
         transform: isPlaying ? 'translateY(-2px)' : 'none',
@@ -904,7 +921,7 @@ const LivePhotoCard: React.FC<{
           LIVE
         </div>
 
-        {/* Top-Right Quick Action Buttons (Full Screen & Delete) */}
+        {/* Top-Right Quick Action Buttons (Checkbox, Full Screen & Delete) */}
         <div
           style={{
             position: 'absolute',
@@ -912,11 +929,37 @@ const LivePhotoCard: React.FC<{
             right: '0.65rem',
             display: 'flex',
             alignItems: 'center',
-            gap: 5,
+            gap: 6,
             zIndex: 2,
           }}
           onClick={(e) => e.stopPropagation()}
         >
+          {/* Checkbox button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              sfx.playClick();
+              onToggleSelect?.();
+            }}
+            title={isSelected ? 'Deselect Live Photo' : 'Select Live Photo'}
+            style={{
+              background: isSelected ? 'var(--tg-blue)' : 'rgba(255, 255, 255, 0.92)',
+              backdropFilter: 'blur(6px)',
+              border: 'none',
+              borderRadius: 8,
+              padding: '0.35rem',
+              color: isSelected ? '#ffffff' : 'var(--text-muted)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            {isSelected ? <CheckSquare size={14} color="#ffffff" /> : <Square size={14} />}
+          </button>
+
           <button
             onClick={(e) => {
               e.stopPropagation();

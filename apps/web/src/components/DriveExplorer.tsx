@@ -32,6 +32,7 @@ import {
   Pencil,
   RotateCcw,
   ChevronDown,
+  Sparkles,
 } from 'lucide-react';
 import { User, Folder, DriveFile, StorageMetrics } from '../types';
 import { sfx } from '../services/sound';
@@ -198,6 +199,66 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
   const livePhotosCount = pairedLivePhotoBaseNames.size;
 
+  // Matched Live Photo Pairs (for Live Photos Studio)
+  const livePhotoPairs: LivePhotoPair[] = React.useMemo(() => {
+    const images: DriveFile[] = [];
+    const videos: DriveFile[] = [];
+
+    files.forEach((f) => {
+      const ext = f.name.split('.').pop()?.toLowerCase() || '';
+      if (['heic', 'jpg', 'jpeg', 'png'].includes(ext) || f.mimeType.startsWith('image/')) {
+        images.push(f);
+      } else if (['mov', 'mp4'].includes(ext) || f.mimeType.startsWith('video/')) {
+        videos.push(f);
+      }
+    });
+
+    const getBase = (filename: string) => {
+      const lastDot = filename.lastIndexOf('.');
+      return lastDot > 0 ? filename.substring(0, lastDot).toLowerCase() : filename.toLowerCase();
+    };
+
+    const matched: LivePhotoPair[] = [];
+    const usedVideoIds = new Set<string>();
+
+    images.forEach((img) => {
+      const imgBase = getBase(img.name);
+      const matchingVideo = videos.find(
+        (v) => !usedVideoIds.has(v.id) && getBase(v.name) === imgBase
+      );
+
+      if (matchingVideo) {
+        usedVideoIds.add(matchingVideo.id);
+        matched.push({
+          id: `${img.id}_${matchingVideo.id}`,
+          baseName: img.name.substring(0, img.name.lastIndexOf('.')) || img.name,
+          photoFile: img,
+          videoFile: matchingVideo,
+          createdAt: img.createdAt,
+          size: img.size + matchingVideo.size,
+        });
+      }
+    });
+
+    return matched;
+  }, [files]);
+
+  const toggleSelectLivePhotoPair = (pair: LivePhotoPair) => {
+    sfx.playClick();
+    const ids = [pair.photoFile.id, pair.videoFile.id];
+    const isPairSelected = selectedIds.includes(pair.photoFile.id) || selectedIds.includes(pair.videoFile.id);
+    if (isPairSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !ids.includes(id)));
+    } else {
+      setSelectedIds((prev) => [...prev, ...ids]);
+    }
+  };
+
+  const isAllLivePhotosSelected = React.useMemo(() => {
+    if (livePhotoPairs.length === 0) return false;
+    return livePhotoPairs.every((p) => selectedIds.includes(p.photoFile.id) || selectedIds.includes(p.videoFile.id));
+  }, [livePhotoPairs, selectedIds]);
+
   // Files displayed in current explorer view:
   // - In 'live_photo' view, all files are passed to LivePhotosView
   // - In normal folders & My Files, paired Live Photo .HEIC & .MOV are hidden from normal list so they only render inside Live Photos
@@ -265,7 +326,12 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
       if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
         e.preventDefault();
         sfx.playClick();
-        setSelectedIds(files.map((f) => f.id));
+        if (currentCategory === 'live_photo') {
+          const allLiveIds = livePhotoPairs.flatMap((p) => [p.photoFile.id, p.videoFile.id]);
+          setSelectedIds(allLiveIds);
+        } else {
+          setSelectedIds(files.map((f) => f.id));
+        }
       }
 
       // Escape -> Clear selection
@@ -277,7 +343,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIds, selectedFolderIds, files, folders, onPreviewFile, onDeleteFile, onDeleteFolder]);
+  }, [selectedIds, selectedFolderIds, files, folders, livePhotoPairs, currentCategory, onPreviewFile, onDeleteFile, onDeleteFolder]);
 
   const toggleSelect = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -287,6 +353,16 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
   const selectAll = () => {
     sfx.playClick();
+    if (currentCategory === 'live_photo') {
+      if (isAllLivePhotosSelected) {
+        setSelectedIds([]);
+      } else {
+        const allLiveIds = livePhotoPairs.flatMap((p) => [p.photoFile.id, p.videoFile.id]);
+        setSelectedIds(allLiveIds);
+      }
+      return;
+    }
+
     if (selectedIds.length === displayedFiles.length && displayedFiles.length > 0) {
       setSelectedIds([]);
     } else {
@@ -1003,83 +1079,119 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           </div>
         </header>
 
-        {/* Breadcrumbs & Filters Subbar (Hidden in dedicated Live Photos page) */}
-        {currentCategory !== 'live_photo' && (
-          currentNav === 'trash' ? (
-            <div
-              className="explorer-subbar"
-              style={{
-                padding: '0.75rem 1.75rem',
-                borderBottom: '1px solid var(--border-subtle)',
-                background: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '0.75rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 8,
-                    background: '#fef2f2',
-                    color: '#ef4444',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Trash2 size={16} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.2 }}>
-                    Trash
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '0.76rem', color: '#64748b' }}>
-                    {displayedFiles.length} {displayedFiles.length === 1 ? 'item' : 'items'} • Restore items or empty trash to permanently delete from Telegram
-                  </p>
-                </div>
-              </div>
-
-              {/* Select All on Mobile / Desktop */}
-              <button
-                onClick={selectAll}
+        {/* Breadcrumbs & Filters Subbar */}
+        {currentNav === 'trash' ? (
+          <div
+            className="explorer-subbar"
+            style={{
+              padding: '0.75rem 1.75rem',
+              borderBottom: '1px solid var(--border-subtle)',
+              background: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <div
                 style={{
-                  display: 'inline-flex',
+                  width: 32,
+                  height: 32,
+                  borderRadius: 8,
+                  background: '#fef2f2',
+                  color: '#ef4444',
+                  display: 'flex',
                   alignItems: 'center',
-                  gap: '0.35rem',
-                  background: 'transparent',
-                  border: 'none',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  flexShrink: 0,
+                  justifyContent: 'center',
                 }}
               >
-                {selectedIds.length === displayedFiles.length && displayedFiles.length > 0 ? (
-                  <CheckSquare size={16} color="var(--tg-blue)" />
-                ) : (
-                  <Square size={16} />
-                )}
-                <span>Select All</span>
-              </button>
+                <Trash2 size={16} />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.2 }}>
+                  Trash
+                </h3>
+                <p style={{ margin: 0, fontSize: '0.76rem', color: '#64748b' }}>
+                  {displayedFiles.length} {displayedFiles.length === 1 ? 'item' : 'items'} • Restore items or empty trash to permanently delete from Telegram
+                </p>
+              </div>
             </div>
-          ) : (
-            <div
-              className="explorer-subbar"
+
+            {/* Select All on Mobile / Desktop */}
+            <button
+              onClick={selectAll}
               style={{
-                padding: '0.75rem 1.75rem',
-                borderBottom: '1px solid var(--border-subtle)',
-                background: '#fff',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                background: 'transparent',
+                border: 'none',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                flexShrink: 0,
               }}
             >
-              {/* Top Row on Mobile / Left on Desktop: Breadcrumb path with Select All on Mobile */}
-              <div className="explorer-subbar-top">
-                {/* Breadcrumb path with Back Arrow and Drag Target */}
+              {selectedIds.length === displayedFiles.length && displayedFiles.length > 0 ? (
+                <CheckSquare size={16} color="var(--tg-blue)" />
+              ) : (
+                <Square size={16} />
+              )}
+              <span>Select All</span>
+            </button>
+          </div>
+        ) : (
+          <div
+            className="explorer-subbar"
+            style={{
+              padding: '0.75rem 1.75rem',
+              borderBottom: '1px solid var(--border-subtle)',
+              background: '#fff',
+            }}
+          >
+            {/* Top Row on Mobile / Left on Desktop: Breadcrumb path with Select All on Mobile */}
+            <div className="explorer-subbar-top">
+              {currentCategory === 'live_photo' ? (
+                /* Live Photos Breadcrumb */
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.88rem', flexWrap: 'wrap', minWidth: 0 }}>
+                  <span
+                    onClick={() => {
+                      sfx.playClick();
+                      onNavigateFolder(null);
+                      onSelectCategory('all');
+                    }}
+                    style={{
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                      padding: '0.2rem 0.55rem',
+                      borderRadius: 8,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    My Files
+                  </span>
+                  <ChevronRight size={14} color="var(--text-light)" />
+                  <span
+                    style={{
+                      color: 'var(--tg-blue)',
+                      cursor: 'default',
+                      fontWeight: 700,
+                      padding: '0.2rem 0.55rem',
+                      borderRadius: 8,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <Sparkles size={14} /> Live Photos ✨
+                  </span>
+                </div>
+              ) : (
+                /* Standard Folder Breadcrumb */
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.88rem', flexWrap: 'wrap', minWidth: 0 }}>
                   {currentFolderId && (
                     <button
@@ -1185,39 +1297,12 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                     );
                   })}
                 </div>
+              )}
 
-                {/* Select All on Mobile (Top Right) */}
-                <div className="hide-on-desktop">
-                  <button
-                    onClick={selectAll}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.35rem',
-                      background: 'transparent',
-                      border: 'none',
-                      fontSize: '0.8rem',
-                      fontWeight: 600,
-                      color: 'var(--text-muted)',
-                      cursor: 'pointer',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {selectedIds.length === files.length && files.length > 0 ? (
-                      <CheckSquare size={16} color="var(--tg-blue)" />
-                    ) : (
-                      <Square size={16} />
-                    )}
-                    <span>Select All</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Desktop Right / Mobile Bottom Full-Width Strip: Select All (Desktop) + Category Scroll */}
-              <div className="explorer-subbar-right">
+              {/* Select All on Mobile (Top Right) */}
+              <div className="hide-on-desktop">
                 <button
                   onClick={selectAll}
-                  className="hide-on-mobile"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -1231,55 +1316,84 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                     flexShrink: 0,
                   }}
                 >
-                  {selectedIds.length === displayedFiles.length && displayedFiles.length > 0 ? (
+                  {(currentCategory === 'live_photo' ? isAllLivePhotosSelected : selectedIds.length === displayedFiles.length && displayedFiles.length > 0) ? (
                     <CheckSquare size={16} color="var(--tg-blue)" />
                   ) : (
                     <Square size={16} />
                   )}
                   <span>Select All</span>
                 </button>
-
-                <div className="explorer-category-scroll">
-                  {[
-                    { id: 'all', label: 'All' },
-                    { id: 'image', label: 'Photos' },
-                    { id: 'video', label: 'Videos' },
-                    { id: 'document', label: 'Documents' },
-                    { id: 'audio', label: 'Audio' },
-                    { id: 'archive', label: 'Archives' },
-                    { id: 'live_photo', label: 'Live Photos ✨' },
-                  ].map((cat) => (
-                    <button
-                      key={cat.id}
-                      onClick={() => {
-                        sfx.playClick();
-                        onSelectCategory(cat.id);
-                      }}
-                      style={{
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        padding: '0.32rem 0.75rem',
-                        borderRadius: 9999,
-                        background: currentCategory === cat.id ? '#eef6fd' : '#f1f5f9',
-                        color: currentCategory === cat.id ? 'var(--tg-blue)' : 'var(--text-muted)',
-                        border: currentCategory === cat.id ? '1px solid rgba(36,129,204,0.25)' : '1px solid transparent',
-                        cursor: 'pointer',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {cat.label}
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
-          )
+
+            {/* Desktop Right / Mobile Bottom Full-Width Strip: Select All (Desktop) + Category Scroll */}
+            <div className="explorer-subbar-right">
+              <button
+                onClick={selectAll}
+                className="hide-on-mobile"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                {(currentCategory === 'live_photo' ? isAllLivePhotosSelected : selectedIds.length === displayedFiles.length && displayedFiles.length > 0) ? (
+                  <CheckSquare size={16} color="var(--tg-blue)" />
+                ) : (
+                  <Square size={16} />
+                )}
+                <span>Select All</span>
+              </button>
+
+              <div className="explorer-category-scroll">
+                {[
+                  { id: 'all', label: 'All' },
+                  { id: 'image', label: 'Photos' },
+                  { id: 'video', label: 'Videos' },
+                  { id: 'document', label: 'Documents' },
+                  { id: 'audio', label: 'Audio' },
+                  { id: 'archive', label: 'Archives' },
+                  { id: 'live_photo', label: 'Live Photos ✨' },
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => {
+                      sfx.playClick();
+                      onSelectCategory(cat.id);
+                    }}
+                    style={{
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      padding: '0.32rem 0.75rem',
+                      borderRadius: 9999,
+                      background: currentCategory === cat.id ? '#eef6fd' : '#f1f5f9',
+                      color: currentCategory === cat.id ? 'var(--tg-blue)' : 'var(--text-muted)',
+                      border: currentCategory === cat.id ? '1px solid rgba(36,129,204,0.25)' : '1px solid transparent',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
 
         {/* If Live Photos is selected, render the dedicated Apple Live Photos Studio */}
         {currentCategory === 'live_photo' ? (
           <LivePhotosView
             files={files}
+            selectedIds={selectedIds}
+            onToggleSelectPair={toggleSelectLivePhotoPair}
             onUploadPair={(fls) => onDropFolderItems(fls.map((f) => ({ file: f, relativePath: f.name })))}
             onPreviewFile={onPreviewFile}
             onShareFile={onShareFile}
