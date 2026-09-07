@@ -101,6 +101,7 @@ export interface TelegramChatMedia {
   fileName: string;
   name?: string;
   size: number;
+  duration?: number;
   date: number;
   streamUrl?: string;
   telegramMsgId?: number;

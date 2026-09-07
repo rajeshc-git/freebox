@@ -209,9 +209,13 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
     }
   }, []);
 
+  const currentReqRef = useRef<number>(0);
+
   // Fetch media for selected chat
   const fetchChatMedia = useCallback(
     async (chatId: string, tab: TelegramTab, isAppend = false, offsetId?: number) => {
+      const reqId = ++currentReqRef.current;
+
       if (isAppend) {
         setLoadingMore(true);
       } else {
@@ -222,6 +226,8 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
 
       try {
         const res: any = await api.getChatMedia(chatId, tab, 100, offsetId);
+        if (reqId !== currentReqRef.current) return;
+
         let items: TelegramChatMedia[] = [];
 
         if (Array.isArray(res)) {
@@ -240,12 +246,15 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
         setHasMore(!!res?.hasMore);
         setNextOffsetId(res?.nextOffsetId ?? null);
       } catch (err: any) {
+        if (reqId !== currentReqRef.current) return;
         console.error('Failed to load chat media:', err);
         setErrorMsg(err?.message || 'Failed to load media files from this chat');
         if (!isAppend) setMediaList([]);
       } finally {
-        setLoadingMedia(false);
-        setLoadingMore(false);
+        if (reqId === currentReqRef.current) {
+          setLoadingMedia(false);
+          setLoadingMore(false);
+        }
       }
     },
     []
@@ -257,7 +266,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
       fetchChatStats(selectedChat.id);
       fetchChatMedia(selectedChat.id, activeTab, false);
     }
-    // Stop audio when changing chat
+    // Stop audio when changing chat or tab
     if (audioRef.current) {
       audioRef.current.pause();
       setIsPlaying(false);
@@ -656,6 +665,11 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   key={tab.id}
                   onClick={() => {
                     sfx.playClick();
+                    if (audioRef.current) {
+                      audioRef.current.pause();
+                      setIsPlaying(false);
+                      setPlayingAudioId(null);
+                    }
                     setActiveTab(tab.id);
                   }}
                   style={{

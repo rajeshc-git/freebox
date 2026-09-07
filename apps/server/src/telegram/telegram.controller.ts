@@ -37,7 +37,9 @@ export class TelegramController {
     if (mimeType.includes(';')) {
       mimeType = mimeType.split(';')[0].trim();
     }
-    if (file.name && file.name.endsWith('.ogg') && (mimeType === 'application/octet-stream' || mimeType === 'audio/opus')) {
+    if (mimeType === 'audio/opus' || mimeType === 'audio/x-opus+ogg') {
+      mimeType = 'audio/ogg';
+    } else if (file.name && file.name.endsWith('.ogg') && (mimeType === 'application/octet-stream' || mimeType === 'audio/opus')) {
       mimeType = 'audio/ogg';
     } else if (file.name && file.name.endsWith('.mp3') && mimeType === 'application/octet-stream') {
       mimeType = 'audio/mpeg';

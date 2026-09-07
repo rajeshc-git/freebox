@@ -306,15 +306,31 @@ export class TelegramClientService {
       filter = new Api.InputMessagesFilterVideo();
     } else if (category === 'files' || category === 'document') {
       filter = new Api.InputMessagesFilterDocument();
-    } else if (category === 'voice' || category === 'audio') {
+    } else if (category === 'voice') {
+      filter = new Api.InputMessagesFilterVoice();
+    } else if (category === 'audio' || category === 'music') {
       filter = new Api.InputMessagesFilterMusic();
     }
 
-    const messages = await client.getMessages(entity, {
+    let messages = await client.getMessages(entity, {
       filter,
       limit,
       offsetId,
     });
+
+    // Fallback: If voice tab was requested with 0 voice notes on initial fetch, check if there are music audio files
+    if (category === 'voice' && (!messages || messages.length === 0) && !offsetId) {
+      try {
+        const musicMessages = await client.getMessages(entity, {
+          filter: new Api.InputMessagesFilterMusic(),
+          limit,
+          offsetId,
+        });
+        if (musicMessages && musicMessages.length > 0) {
+          messages = musicMessages;
+        }
+      } catch {}
+    }
 
     const results: any[] = [];
     for (const msg of messages) {
@@ -324,6 +340,7 @@ export class TelegramClientService {
       let size = 0;
       let mimeType = 'application/octet-stream';
       let type: 'image' | 'video' | 'document' | 'audio' = 'document';
+      let duration: number | undefined = undefined;
 
       const doc = (msg.media as any)?.document;
       const photo = (msg.media as any)?.photo;
@@ -338,6 +355,10 @@ export class TelegramClientService {
         const audioAttr = doc.attributes?.find(
           (a: any) => a.className === 'DocumentAttributeAudio' || a.duration !== undefined || a.voice !== undefined,
         );
+
+        if (audioAttr?.duration !== undefined) {
+          duration = audioAttr.duration;
+        }
 
         if (fileNameAttr?.fileName) {
           name = fileNameAttr.fileName;
@@ -378,6 +399,7 @@ export class TelegramClientService {
         size,
         type,
         mimeType,
+        duration,
         date: msg.date || 0,
         telegramMsgId: msg.id,
       });
