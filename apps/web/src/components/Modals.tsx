@@ -1725,7 +1725,6 @@ export const TorrentQueueManager: React.FC<TorrentQueueManagerProps> = ({
 }) => {
   const [isMinimized, setIsMinimized] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [autoCloseCountdown, setAutoCloseCountdown] = useState<number | null>(null);
   const [isFadingOut, setIsFadingOut] = useState(false);
 
   const completed = queue.filter((i) => i.progress >= 100 || i.state === 'completed').length;
@@ -1733,42 +1732,31 @@ export const TorrentQueueManager: React.FC<TorrentQueueManagerProps> = ({
   const activeCount = queue.filter((i) => i.state === 'uploading').length;
   const isAllPaused = queue.every((i) => i.state === 'paused' || i.progress >= 100);
 
-  // Auto-hide after 10 seconds of all uploads completed (with smooth fade-out)
+  // Toast-like auto-dismiss: when all uploads finish, pause if hovered, otherwise fade out smoothly
   useEffect(() => {
     if (!isOpen || !isAllDone) {
-      setAutoCloseCountdown(null);
       setIsFadingOut(false);
       return;
     }
 
-    // Start 10s timer
-    if (autoCloseCountdown === null) {
-      setAutoCloseCountdown(10);
-    }
-
     if (isHovered) {
-      return; // Pause timer while user is hovering
+      setIsFadingOut(false);
+      return;
     }
 
-    const timer = setInterval(() => {
-      setAutoCloseCountdown((prev) => {
-        const current = prev === null ? 10 : prev;
-        if (current <= 1) {
-          setIsFadingOut(true);
-          setTimeout(() => {
-            onClose();
-          }, 800);
-          return 0;
-        }
-        if (current <= 2) {
-          setIsFadingOut(true);
-        }
-        return current - 1;
-      });
-    }, 1000);
+    const fadeTimer = setTimeout(() => {
+      setIsFadingOut(true);
+      const closeTimer = setTimeout(() => {
+        onClose();
+        setIsFadingOut(false);
+      }, 700);
+      return () => clearTimeout(closeTimer);
+    }, 3500);
 
-    return () => clearInterval(timer);
-  }, [isOpen, isAllDone, isHovered, autoCloseCountdown, onClose]);
+    return () => {
+      clearTimeout(fadeTimer);
+    };
+  }, [isOpen, isAllDone, isHovered, onClose]);
 
   if (!isOpen || queue.length === 0) return null;
 
@@ -1786,7 +1774,8 @@ export const TorrentQueueManager: React.FC<TorrentQueueManagerProps> = ({
   const animStyle: React.CSSProperties = {
     opacity: isFadingOut ? 0 : 1,
     transform: isFadingOut ? 'translateY(18px) scale(0.97)' : 'translateY(0) scale(1)',
-    transition: 'opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1)',
+    transition: 'opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1)',
+    pointerEvents: isFadingOut ? 'none' : 'auto',
   };
 
   // Minimized Sleek Floating Pill (100% Light Mode)
@@ -1821,11 +1810,6 @@ export const TorrentQueueManager: React.FC<TorrentQueueManagerProps> = ({
         <span style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600 }}>
           {completed}/{queue.length} files
         </span>
-        {isAllDone && autoCloseCountdown !== null && (
-          <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 700 }}>
-            ({autoCloseCountdown}s)
-          </span>
-        )}
         <ChevronUp size={15} color="#0284c7" />
       </div>
     );
@@ -1900,7 +1884,7 @@ export const TorrentQueueManager: React.FC<TorrentQueueManagerProps> = ({
             </div>
             <div style={{ fontSize: '0.74rem', color: isAllDone ? '#059669' : '#64748b', marginTop: 1, fontWeight: isAllDone ? 600 : 500 }}>
               {isAllDone
-                ? `✓ All uploaded · Auto-closing in ${autoCloseCountdown ?? 10}s`
+                ? '✓ All files uploaded successfully'
                 : `${activeCount} active · ${completed} of ${queue.length} completed`}
             </div>
           </div>
@@ -1926,7 +1910,10 @@ export const TorrentQueueManager: React.FC<TorrentQueueManagerProps> = ({
             <ChevronDown size={16} />
           </button>
           <button
-            onClick={onClose}
+            onClick={() => {
+              setIsFadingOut(false);
+              onClose();
+            }}
             title="Close"
             style={{
               background: '#f8fafc',
