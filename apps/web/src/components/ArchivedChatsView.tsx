@@ -13,16 +13,15 @@ import {
   Download,
   X,
   Play,
+  Pause,
   Users,
   Radio,
   User as UserIcon,
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Layers,
   AlertCircle,
   Loader2,
-  Mic,
 } from 'lucide-react';
 import { TelegramArchivedChat, TelegramChatMedia } from '../types';
 import { api } from '../services/api';
@@ -41,7 +40,6 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
   const [chatSearch, setChatSearch] = useState('');
   const [mediaSearch, setMediaSearch] = useState('');
   const [activeTab, setActiveTab] = useState<TelegramMediaTab>('media');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMedia, setLoadingMedia] = useState(false);
@@ -60,6 +58,10 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
   const [mediaList, setMediaList] = useState<TelegramChatMedia[]>([]);
   const [activeMediaIndex, setActiveMediaIndex] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Audio player state for voice tab
+  const [playingAudioId, setPlayingAudioId] = useState<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -81,6 +83,14 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
       day: 'numeric',
       year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
     });
+  };
+
+  const formatDateTime = (timestamp: number) => {
+    if (!timestamp) return '';
+    const d = new Date(timestamp * 1000);
+    const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return `${dateStr} at ${timeStr}`;
   };
 
   // Fetch archived chats
@@ -204,30 +214,48 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
     return list.filter((m) => m && (m.fileName || m.name || '').toLowerCase().includes(q));
   }, [mediaList, mediaSearch]);
 
-  // Header Subtitle Summary string (e.g. "2177 photos, 142 videos • 35 files")
+  // Header Subtitle Summary string matching Telegram UI
   const headerSubtitle = useMemo(() => {
     if (!selectedChat) return '';
     if (!chatStats) return `${mediaList.length} items loaded`;
 
-    const parts: string[] = [];
-    if (chatStats.photos > 0 || chatStats.videos > 0) {
-      const mediaParts: string[] = [];
-      if (chatStats.photos > 0) mediaParts.push(`${chatStats.photos.toLocaleString()} photos`);
-      if (chatStats.videos > 0) mediaParts.push(`${chatStats.videos.toLocaleString()} videos`);
-      parts.push(mediaParts.join(', '));
-    }
-    if (chatStats.files > 0) {
-      parts.push(`${chatStats.files.toLocaleString()} files`);
-    }
-    if (chatStats.voice > 0) {
-      parts.push(`${chatStats.voice.toLocaleString()} voice`);
+    if (activeTab === 'media') {
+      if (chatStats.photos > 0 && chatStats.videos > 0) {
+        return `${chatStats.photos.toLocaleString()} photos, ${chatStats.videos.toLocaleString()} videos`;
+      }
+      if (chatStats.photos > 0) return `${chatStats.photos.toLocaleString()} photos`;
+      if (chatStats.videos > 0) return `${chatStats.videos.toLocaleString()} videos`;
+      return `${chatStats.media.toLocaleString()} media items`;
     }
 
-    if (parts.length === 0) {
-      return `${mediaList.length} items loaded`;
+    if (activeTab === 'files') {
+      return `${chatStats.files.toLocaleString()} files`;
     }
-    return parts.join(' • ');
-  }, [selectedChat, chatStats, mediaList.length]);
+
+    if (activeTab === 'voice') {
+      return `${chatStats.voice.toLocaleString()} voice messages`;
+    }
+
+    return `${mediaList.length} items`;
+  }, [selectedChat, chatStats, activeTab, mediaList.length]);
+
+  // Handle voice note inline play/pause
+  const handleToggleVoice = (media: TelegramChatMedia) => {
+    sfx.playClick();
+    if (playingAudioId === media.id) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
+      setPlayingAudioId(null);
+    } else {
+      const url = api.getChatMediaStreamUrl(media.chatId, media.id);
+      if (audioRef.current) {
+        audioRef.current.src = url;
+        audioRef.current.play().catch(console.error);
+      }
+      setPlayingAudioId(media.id);
+    }
+  };
 
   // Keyboard navigation for media preview
   useEffect(() => {
@@ -274,6 +302,14 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
         background: 'var(--bg-main, #f8fafc)',
       }}
     >
+      {/* Hidden audio element for inline voice playback */}
+      <audio
+        ref={audioRef}
+        onEnded={() => setPlayingAudioId(null)}
+        onError={() => setPlayingAudioId(null)}
+        style={{ display: 'none' }}
+      />
+
       {/* Top Header Bar */}
       <div
         style={{
@@ -297,6 +333,8 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                 setMediaList([]);
                 setChatStats(null);
                 setErrorMsg(null);
+                setPlayingAudioId(null);
+                if (audioRef.current) audioRef.current.pause();
               }}
               style={{
                 display: 'flex',
@@ -408,7 +446,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
             <Search size={16} color="#64748b" />
             <input
               type="text"
-              placeholder={selectedChat ? 'Search files...' : 'Search chats...'}
+              placeholder={selectedChat ? 'Search...' : 'Search chats...'}
               value={selectedChat ? mediaSearch : chatSearch}
               onChange={(e) =>
                 selectedChat ? setMediaSearch(e.target.value) : setChatSearch(e.target.value)
@@ -438,58 +476,6 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
               </button>
             )}
           </div>
-
-          {/* Grid / List switcher (when inside a chat) */}
-          {selectedChat && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                background: '#f1f5f9',
-                borderRadius: '8px',
-                padding: '2px',
-              }}
-            >
-              <button
-                onClick={() => {
-                  sfx.playClick();
-                  setViewMode('grid');
-                }}
-                style={{
-                  border: 'none',
-                  background: viewMode === 'grid' ? '#ffffff' : 'transparent',
-                  color: viewMode === 'grid' ? '#0f172a' : '#64748b',
-                  boxShadow: viewMode === 'grid' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                  padding: '6px 8px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                }}
-                title="Grid View"
-              >
-                <Grid size={16} />
-              </button>
-              <button
-                onClick={() => {
-                  sfx.playClick();
-                  setViewMode('list');
-                }}
-                style={{
-                  border: 'none',
-                  background: viewMode === 'list' ? '#ffffff' : 'transparent',
-                  color: viewMode === 'list' ? '#0f172a' : '#64748b',
-                  boxShadow: viewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                  padding: '6px 8px',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                }}
-                title="List View"
-              >
-                <List size={16} />
-              </button>
-            </div>
-          )}
 
           {/* Refresh button */}
           <button
@@ -545,17 +531,14 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
             {
               id: 'media' as TelegramMediaTab,
               label: 'Media',
-              count: chatStats?.media ?? (chatStats ? chatStats.photos + chatStats.videos : undefined),
             },
             {
               id: 'files' as TelegramMediaTab,
               label: 'Files',
-              count: chatStats?.files,
             },
             {
               id: 'voice' as TelegramMediaTab,
               label: 'Voice',
-              count: chatStats?.voice,
             },
           ].map((tab) => {
             const isActive = activeTab === tab.id;
@@ -570,12 +553,12 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   display: 'flex',
                   alignItems: 'center',
                   gap: '0.5rem',
-                  padding: '0.5rem 1.15rem',
+                  padding: '0.45rem 1.35rem',
                   borderRadius: '9999px',
-                  fontSize: '0.88rem',
+                  fontSize: '0.9rem',
                   fontWeight: 600,
-                  border: isActive ? '1px solid rgba(36, 129, 204, 0.35)' : '1px solid transparent',
-                  background: isActive ? '#eef6fd' : '#f8fafc',
+                  border: 'none',
+                  background: isActive ? '#e8f2fd' : 'transparent',
                   color: isActive ? '#2481cc' : '#64748b',
                   cursor: 'pointer',
                   transition: 'all 0.15s ease',
@@ -583,20 +566,6 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                 }}
               >
                 <span>{tab.label}</span>
-                {tab.count !== undefined && tab.count > 0 && (
-                  <span
-                    style={{
-                      fontSize: '0.72rem',
-                      padding: '1px 7px',
-                      borderRadius: '9999px',
-                      background: isActive ? '#2481cc' : '#e2e8f0',
-                      color: isActive ? '#ffffff' : '#64748b',
-                      fontWeight: 700,
-                    }}
-                  >
-                    {tab.count.toLocaleString()}
-                  </span>
-                )}
               </button>
             );
           })}
@@ -610,7 +579,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
         style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '1.5rem 1.75rem',
+          padding: activeTab === 'media' && selectedChat ? '0.75rem 1.75rem' : '1.5rem 1.75rem',
           position: 'relative',
         }}
       >
@@ -878,29 +847,21 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                  gap: '1rem',
+                  gridTemplateColumns: activeTab === 'media' ? 'repeat(auto-fill, minmax(130px, 1fr))' : '1fr',
+                  gap: activeTab === 'media' ? '4px' : '0.75rem',
                 }}
               >
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
                   <div
                     key={n}
                     style={{
-                      height: '180px',
-                      borderRadius: '14px',
+                      height: activeTab === 'media' ? '130px' : '64px',
+                      borderRadius: activeTab === 'media' ? '4px' : '12px',
                       background: '#ffffff',
                       border: '1px solid #e2e8f0',
-                      overflow: 'hidden',
-                      display: 'flex',
-                      flexDirection: 'column',
+                      animation: 'pulse 1.5s infinite',
                     }}
-                  >
-                    <div style={{ flex: 1, background: '#f1f5f9' }} />
-                    <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                      <div style={{ height: '10px', width: '80%', background: '#e2e8f0', borderRadius: '4px' }} />
-                      <div style={{ height: '8px', width: '40%', background: '#f1f5f9', borderRadius: '4px' }} />
-                    </div>
-                  </div>
+                  />
                 ))}
               </div>
             ) : filteredMedia.length === 0 ? (
@@ -938,19 +899,19 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   No {activeTab} files found in {selectedChat.title}.
                 </p>
               </div>
-            ) : viewMode === 'grid' ? (
-              /* GRID VIEW */
+            ) : activeTab === 'media' ? (
+              /* ================= TAB 1: MEDIA (Photos & Videos Seamless Grid) ================= */
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',
-                  gap: '1.25rem',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                  gap: '4px',
+                  borderRadius: '12px',
+                  overflow: 'hidden',
                 }}
               >
                 {filteredMedia.map((media, idx) => {
-                  const isImage = media.type === 'image';
                   const isVideo = media.type === 'video';
-                  const isAudio = media.type === 'audio';
                   const fileName = media.fileName || media.name || `media_${media.id}`;
                   const streamUrl = api.getChatMediaStreamUrl(media.chatId, media.id);
 
@@ -962,197 +923,91 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                         setActiveMediaIndex(idx);
                       }}
                       style={{
-                        background: '#ffffff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '16px',
-                        overflow: 'hidden',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        aspectRatio: '1 / 1',
+                        background: '#0f172a',
                         position: 'relative',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 10px 20px rgba(0,0,0,0.06)';
-                        e.currentTarget.style.borderColor = '#cbd5e1';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'none';
-                        e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.02)';
-                        e.currentTarget.style.borderColor = '#e2e8f0';
+                        cursor: 'pointer',
+                        overflow: 'hidden',
                       }}
                     >
-                      {/* Media Preview Box */}
-                      <div
+                      <img
+                        src={streamUrl}
+                        alt={fileName}
+                        loading="lazy"
                         style={{
-                          height: '140px',
-                          background: '#0f172a',
-                          position: 'relative',
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          transition: 'transform 0.2s ease',
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.04)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                      />
+
+                      {/* Video indicator */}
+                      {isVideo && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: '6px',
+                            left: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            background: 'rgba(0,0,0,0.65)',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            color: '#ffffff',
+                            fontSize: '0.68rem',
+                            fontWeight: 600,
+                          }}
+                        >
+                          <Play size={10} fill="#ffffff" />
+                          <span>Video</span>
+                        </div>
+                      )}
+
+                      {/* Hover Download button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(media);
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: '6px',
+                          right: '6px',
+                          width: '26px',
+                          height: '26px',
+                          borderRadius: '6px',
+                          background: 'rgba(15, 23, 42, 0.75)',
+                          border: 'none',
+                          color: '#ffffff',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          overflow: 'hidden',
+                          cursor: 'pointer',
+                          opacity: 0.85,
+                          transition: 'all 0.15s ease',
+                        }}
+                        title="Download"
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.opacity = '1';
+                          e.currentTarget.style.background = '#2481cc';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.opacity = '0.85';
+                          e.currentTarget.style.background = 'rgba(15, 23, 42, 0.75)';
                         }}
                       >
-                        {isImage ? (
-                          <img
-                            src={streamUrl}
-                            alt={fileName}
-                            loading="lazy"
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                            }}
-                          />
-                        ) : isVideo ? (
-                          <div
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              background: '#1e293b',
-                            }}
-                          >
-                            <div
-                              style={{
-                                width: '44px',
-                                height: '44px',
-                                borderRadius: '50%',
-                                background: 'rgba(255,255,255,0.2)',
-                                backdropFilter: 'blur(8px)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#ffffff',
-                              }}
-                            >
-                              <Play size={20} fill="#ffffff" />
-                            </div>
-                            <span
-                              style={{
-                                position: 'absolute',
-                                bottom: '8px',
-                                right: '8px',
-                                background: 'rgba(0,0,0,0.6)',
-                                color: '#ffffff',
-                                fontSize: '0.68rem',
-                                padding: '2px 6px',
-                                borderRadius: '4px',
-                                fontWeight: 600,
-                              }}
-                            >
-                              VIDEO
-                            </span>
-                          </div>
-                        ) : isAudio ? (
-                          <div
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)',
-                              color: '#ffffff',
-                              gap: '0.5rem',
-                            }}
-                          >
-                            <Music size={32} />
-                            <span style={{ fontSize: '0.72rem', fontWeight: 600 }}>VOICE / AUDIO</span>
-                          </div>
-                        ) : (
-                          <div
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                              color: '#ffffff',
-                              gap: '0.5rem',
-                            }}
-                          >
-                            <FileText size={32} />
-                            <span style={{ fontSize: '0.72rem', fontWeight: 600 }}>
-                              {fileName.split('.').pop()?.toUpperCase() || 'FILE'}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Download button on hover overlay */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownload(media);
-                          }}
-                          style={{
-                            position: 'absolute',
-                            top: '8px',
-                            right: '8px',
-                            width: '30px',
-                            height: '30px',
-                            borderRadius: '8px',
-                            background: 'rgba(15, 23, 42, 0.75)',
-                            backdropFilter: 'blur(4px)',
-                            border: 'none',
-                            color: '#ffffff',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease',
-                          }}
-                          title="Download file"
-                          onMouseEnter={(e) => (e.currentTarget.style.background = '#2481cc')}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(15, 23, 42, 0.75)')}
-                        >
-                          <Download size={14} />
-                        </button>
-                      </div>
-
-                      {/* File Details Footer */}
-                      <div style={{ padding: '0.85rem' }}>
-                        <div
-                          style={{
-                            fontWeight: 600,
-                            fontSize: '0.84rem',
-                            color: '#0f172a',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                          title={fileName}
-                        >
-                          {fileName}
-                        </div>
-                        <div
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            marginTop: '0.35rem',
-                            fontSize: '0.72rem',
-                            color: '#64748b',
-                          }}
-                        >
-                          <span>{formatBytes(media.size)}</span>
-                          <span>{formatDate(media.date)}</span>
-                        </div>
-                      </div>
+                        <Download size={13} />
+                      </button>
                     </div>
                   );
                 })}
               </div>
-            ) : (
-              /* LIST VIEW */
+            ) : activeTab === 'files' ? (
+              /* ================= TAB 2: FILES (Telegram Files List with Thumbnail) ================= */
               <div
                 style={{
                   background: '#ffffff',
@@ -1161,32 +1016,11 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   overflow: 'hidden',
                 }}
               >
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '40px 1fr 120px 120px 80px',
-                    padding: '0.75rem 1.25rem',
-                    background: '#f8fafc',
-                    borderBottom: '1px solid #e2e8f0',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    color: '#64748b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                  }}
-                >
-                  <span>Type</span>
-                  <span>Name</span>
-                  <span>Size</span>
-                  <span>Date</span>
-                  <span style={{ textAlign: 'right' }}>Action</span>
-                </div>
-
                 {filteredMedia.map((media, idx) => {
-                  const isImage = media.type === 'image';
-                  const isVideo = media.type === 'video';
-                  const isAudio = media.type === 'audio';
-                  const fileName = media.fileName || media.name || `media_${media.id}`;
+                  const fileName = media.fileName || media.name || `file_${media.id}`;
+                  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+                  const isImg = ['jpg', 'jpeg', 'png', 'webp', 'heic'].includes(ext) || media.mimeType.startsWith('image/');
+                  const streamUrl = api.getChatMediaStreamUrl(media.chatId, media.id);
 
                   return (
                     <div
@@ -1196,10 +1030,10 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                         setActiveMediaIndex(idx);
                       }}
                       style={{
-                        display: 'grid',
-                        gridTemplateColumns: '40px 1fr 120px 120px 80px',
-                        padding: '0.75rem 1.25rem',
+                        display: 'flex',
                         alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.85rem 1.25rem',
                         borderBottom: '1px solid #f1f5f9',
                         cursor: 'pointer',
                         transition: 'background 0.15s ease',
@@ -1207,48 +1041,187 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                       onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
                       onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
                     >
-                      <div>
-                        {isImage ? (
-                          <ImageIcon size={18} color="#0284c7" />
-                        ) : isVideo ? (
-                          <Film size={18} color="#8b5cf6" />
-                        ) : isAudio ? (
-                          <Music size={18} color="#10b981" />
-                        ) : (
-                          <FileText size={18} color="#f59e0b" />
-                        )}
-                      </div>
-
-                      <div
-                        style={{
-                          fontWeight: 600,
-                          fontSize: '0.86rem',
-                          color: '#0f172a',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          paddingRight: '1rem',
-                        }}
-                      >
-                        {fileName}
-                      </div>
-
-                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                        {formatBytes(media.size)}
-                      </div>
-
-                      <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                        {formatDate(media.date)}
-                      </div>
-
-                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownload(media);
-                          }}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', minWidth: 0, flex: 1 }}>
+                        {/* Square Thumbnail or Document Icon */}
+                        <div
                           style={{
-                            padding: '6px',
+                            width: '46px',
+                            height: '46px',
+                            borderRadius: '10px',
+                            overflow: 'hidden',
+                            background: '#f1f5f9',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {isImg ? (
+                            <img
+                              src={streamUrl}
+                              alt={fileName}
+                              loading="lazy"
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                          ) : (
+                            <div
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                background: '#e0f2fe',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#0284c7',
+                              }}
+                            >
+                              <FileText size={22} />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* File Details */}
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              fontSize: '0.9rem',
+                              color: '#0f172a',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {fileName}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.76rem',
+                              color: '#64748b',
+                              marginTop: 2,
+                            }}
+                          >
+                            {formatBytes(media.size)} · {formatDateTime(media.date)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Download button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(media);
+                        }}
+                        style={{
+                          padding: '0.45rem',
+                          borderRadius: '8px',
+                          border: '1px solid #e2e8f0',
+                          background: '#ffffff',
+                          color: '#64748b',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.15s ease',
+                        }}
+                        title="Download"
+                        onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
+                      >
+                        <Download size={16} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* ================= TAB 3: VOICE (Telegram Voice Notes List) ================= */
+              <div
+                style={{
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  border: '1px solid #e2e8f0',
+                  overflow: 'hidden',
+                }}
+              >
+                {filteredMedia.map((media) => {
+                  const isPlaying = playingAudioId === media.id;
+
+                  return (
+                    <div
+                      key={media.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.85rem 1.25rem',
+                        borderBottom: '1px solid #f1f5f9',
+                        transition: 'background 0.15s ease',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', flex: 1, minWidth: 0 }}>
+                        {/* Circular Blue Play Button */}
+                        <button
+                          onClick={() => handleToggleVoice(media)}
+                          style={{
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: '50%',
+                            background: '#2481cc',
+                            border: 'none',
+                            color: '#ffffff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                            boxShadow: '0 2px 8px rgba(36, 129, 204, 0.3)',
+                            transition: 'transform 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
+                          onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+                        >
+                          {isPlaying ? <Pause size={18} fill="#ffffff" /> : <Play size={18} fill="#ffffff" style={{ marginLeft: 2 }} />}
+                        </button>
+
+                        {/* Title and duration */}
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div
+                            style={{
+                              fontWeight: 600,
+                              fontSize: '0.9rem',
+                              color: '#0f172a',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            Voice message
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.76rem',
+                              color: isPlaying ? '#2481cc' : '#64748b',
+                              fontWeight: isPlaying ? 600 : 500,
+                              marginTop: 2,
+                            }}
+                          >
+                            {isPlaying ? 'Playing...' : formatBytes(media.size)}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Date & Download */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 500 }}>
+                          {formatDate(media.date)}
+                        </span>
+                        <button
+                          onClick={() => handleDownload(media)}
+                          style={{
+                            padding: '0.45rem',
                             borderRadius: '8px',
                             border: '1px solid #e2e8f0',
                             background: '#ffffff',
@@ -1256,9 +1229,9 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                             cursor: 'pointer',
                             display: 'flex',
                           }}
-                          title="Download"
+                          title="Download audio"
                         >
-                          <Download size={14} />
+                          <Download size={15} />
                         </button>
                       </div>
                     </div>
@@ -1525,7 +1498,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                     width: '72px',
                     height: '72px',
                     borderRadius: '50%',
-                    background: '#6366f1',
+                    background: '#2481cc',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
