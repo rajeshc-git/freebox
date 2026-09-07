@@ -19,10 +19,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  Info,
   Layers,
   AlertCircle,
-  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { TelegramArchivedChat, TelegramChatMedia } from '../types';
 import { api } from '../services/api';
@@ -45,12 +44,15 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
 
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMedia, setLoadingMedia] = useState(false);
-  const [mediaProgress, setMediaProgress] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextOffsetId, setNextOffsetId] = useState<number | null>(null);
+
   const [mediaList, setMediaList] = useState<TelegramChatMedia[]>([]);
   const [activeMediaIndex, setActiveMediaIndex] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const progressIntervalRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Format bytes helper
   const formatBytes = (bytes: number) => {
@@ -96,62 +98,73 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
     fetchArchivedChats();
   }, [fetchArchivedChats]);
 
-  // Fetch media for selected chat with 0% -> 100% progress animation
-  const fetchChatMedia = useCallback(async (chatId: string, category: MediaCategory) => {
-    setLoadingMedia(true);
-    setMediaProgress(5);
-    setErrorMsg(null);
-
-    // Clear any previous interval
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-    }
-
-    // Smooth progress simulation up to 92%
-    progressIntervalRef.current = setInterval(() => {
-      setMediaProgress((prev) => {
-        if (prev >= 92) {
-          return 92;
-        }
-        const step = Math.max(2, Math.floor((95 - prev) * 0.15));
-        return Math.min(92, prev + step);
-      });
-    }, 150);
-
-    try {
-      const res: any = await api.getChatMedia(chatId, category, 100);
-      let list: TelegramChatMedia[] = [];
-
-      if (Array.isArray(res)) {
-        list = res;
-      } else if (res && Array.isArray(res.media)) {
-        list = res.media;
+  // Fetch media for selected chat (initial load or tab change)
+  const fetchChatMedia = useCallback(
+    async (chatId: string, category: MediaCategory, isAppend = false, offsetId?: number) => {
+      if (isAppend) {
+        setLoadingMore(true);
+      } else {
+        setLoadingMedia(true);
+        setMediaList([]);
       }
+      setErrorMsg(null);
 
-      // Finish to 100% smoothly
-      setMediaProgress(100);
-      setTimeout(() => {
-        setMediaList(list);
+      try {
+        const res: any = await api.getChatMedia(chatId, category, 100, offsetId);
+        let items: TelegramChatMedia[] = [];
+
+        if (Array.isArray(res)) {
+          items = res;
+        } else if (res && Array.isArray(res.media)) {
+          items = res.media;
+        }
+
+        setMediaList((prev) => {
+          if (!isAppend) return items;
+          // Deduplicate by message ID
+          const existingIds = new Set(prev.map((m) => m.id));
+          const newItems = items.filter((m) => !existingIds.has(m.id));
+          return [...prev, ...newItems];
+        });
+
+        setHasMore(!!res?.hasMore);
+        setNextOffsetId(res?.nextOffsetId ?? null);
+      } catch (err: any) {
+        console.error('Failed to load chat media:', err);
+        setErrorMsg(err?.message || 'Failed to load media files from this chat');
+        if (!isAppend) setMediaList([]);
+      } finally {
         setLoadingMedia(false);
-        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-      }, 350);
-    } catch (err: any) {
-      console.error('Failed to load chat media:', err);
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-      setMediaList([]);
-      setLoadingMedia(false);
-      setErrorMsg(err?.message || 'Failed to load media files from this chat');
-    }
-  }, []);
+        setLoadingMore(false);
+      }
+    },
+    []
+  );
 
+  // When selectedChat or categoryFilter changes, fetch first batch
   useEffect(() => {
     if (selectedChat) {
-      fetchChatMedia(selectedChat.id, categoryFilter);
+      fetchChatMedia(selectedChat.id, categoryFilter, false);
     }
-    return () => {
-      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
-    };
   }, [selectedChat, categoryFilter, fetchChatMedia]);
+
+  // Load next batch
+  const handleLoadMore = useCallback(() => {
+    if (!selectedChat || loadingMedia || loadingMore || !hasMore || !nextOffsetId) return;
+    fetchChatMedia(selectedChat.id, categoryFilter, true, nextOffsetId);
+  }, [selectedChat, loadingMedia, loadingMore, hasMore, nextOffsetId, categoryFilter, fetchChatMedia]);
+
+  // Auto Infinite Scroll Handler
+  const handleScroll = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    if (scrollHeight - scrollTop - clientHeight < 350) {
+      if (hasMore && !loadingMore && !loadingMedia) {
+        handleLoadMore();
+      }
+    }
+  }, [hasMore, loadingMore, loadingMedia, handleLoadMore]);
 
   // Filtered chats (Defensive)
   const filteredChats = useMemo(() => {
@@ -238,7 +251,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
       {/* Top Header Bar */}
       <div
         style={{
-          padding: '1.25rem 1.75rem',
+          padding: '1.15rem 1.75rem',
           background: '#ffffff',
           borderBottom: '1px solid var(--border-color, #e2e8f0)',
           display: 'flex',
@@ -296,11 +309,11 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                 <Archive size={22} />
               </div>
               <div>
-                <h1 style={{ margin: 0, fontSize: '1.35rem', fontWeight: 700, color: '#0f172a' }}>
+                <h1 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700, color: '#0f172a' }}>
                   Archived Chats & Channels
                 </h1>
                 <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>
-                  Extract & stream high-res media from your Telegram archive folder
+                  Browse & stream all photos, videos & docs from Telegram archive
                 </p>
               </div>
             </div>
@@ -333,7 +346,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                 )}
               </div>
               <div>
-                <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0f172a' }}>
+                <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
                   {selectedChat.title}
                 </h2>
                 <span
@@ -348,7 +361,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                     : selectedChat.isGroup
                     ? 'Group'
                     : 'Direct Chat'}{' '}
-                  • {loadingMedia ? 'Loading...' : `${mediaList.length} media items`}
+                  • {loadingMedia ? 'Loading media...' : `${mediaList.length} media loaded${hasMore ? '+' : ''}`}
                 </span>
               </div>
             </div>
@@ -366,7 +379,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
               borderRadius: '10px',
               padding: '0.45rem 0.75rem',
               gap: '0.5rem',
-              width: '220px',
+              width: '210px',
             }}
           >
             <Search size={16} color="#64748b" />
@@ -460,7 +473,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
             onClick={() => {
               sfx.playClick();
               if (selectedChat) {
-                fetchChatMedia(selectedChat.id, categoryFilter);
+                fetchChatMedia(selectedChat.id, categoryFilter, false);
               } else {
                 fetchArchivedChats();
               }
@@ -491,8 +504,8 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
         </div>
       </div>
 
-      {/* Category Tabs Subbar (When Chat is Selected and not in full loading) */}
-      {selectedChat && !loadingMedia && (
+      {/* Category Filter Tabs (When Inside a Chat) */}
+      {selectedChat && (
         <div
           style={{
             padding: '0.65rem 1.75rem',
@@ -558,7 +571,16 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
       )}
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 1.75rem', position: 'relative' }}>
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '1.5rem 1.75rem',
+          position: 'relative',
+        }}
+      >
         {/* Error banner */}
         {errorMsg && (
           <div
@@ -583,7 +605,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
             <button
               onClick={() => {
                 if (selectedChat) {
-                  fetchChatMedia(selectedChat.id, categoryFilter);
+                  fetchChatMedia(selectedChat.id, categoryFilter, false);
                 } else {
                   fetchArchivedChats();
                 }
@@ -619,7 +641,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   <div
                     key={n}
                     style={{
-                      height: '110px',
+                      height: '100px',
                       borderRadius: '16px',
                       background: '#ffffff',
                       border: '1px solid #e2e8f0',
@@ -627,7 +649,6 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                       display: 'flex',
                       alignItems: 'center',
                       gap: '1rem',
-                      animation: 'pulse 1.5s infinite',
                     }}
                   >
                     <div
@@ -819,114 +840,35 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
         {/* 2. CHAT MEDIA EXPLORER (When a chat is selected) */}
         {selectedChat && (
           <div>
-            {/* PERCENTAGE PROGRESS LOADER (0% -> 100%) */}
+            {/* Initial Loading Skeleton */}
             {loadingMedia ? (
               <div
                 style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '4.5rem 2rem',
-                  maxWidth: '460px',
-                  margin: '3rem auto',
-                  background: '#ffffff',
-                  borderRadius: '24px',
-                  border: '1px solid #e2e8f0',
-                  boxShadow: '0 20px 45px -10px rgba(36, 129, 204, 0.12)',
-                  textAlign: 'center',
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+                  gap: '1rem',
                 }}
               >
-                {/* Cyber Rotating Pulse Icon */}
-                <div
-                  style={{
-                    position: 'relative',
-                    width: '76px',
-                    height: '76px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: '1.5rem',
-                  }}
-                >
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
                   <div
+                    key={n}
                     style={{
-                      position: 'absolute',
-                      inset: 0,
-                      borderRadius: '50%',
-                      border: '3px solid #e0f2fe',
-                      borderTopColor: '#2481cc',
-                      animation: 'spin 1s linear infinite',
-                    }}
-                  />
-                  <div
-                    style={{
-                      width: '56px',
-                      height: '56px',
-                      borderRadius: '16px',
-                      background: 'linear-gradient(135deg, #2481cc 0%, #1765a3 100%)',
+                      height: '180px',
+                      borderRadius: '14px',
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      overflow: 'hidden',
                       display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#ffffff',
-                      boxShadow: '0 6px 16px rgba(36, 129, 204, 0.3)',
+                      flexDirection: 'column',
                     }}
                   >
-                    <Archive size={26} />
+                    <div style={{ flex: 1, background: '#f1f5f9' }} />
+                    <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      <div style={{ height: '10px', width: '80%', background: '#e2e8f0', borderRadius: '4px' }} />
+                      <div style={{ height: '8px', width: '40%', background: '#f1f5f9', borderRadius: '4px' }} />
+                    </div>
                   </div>
-                </div>
-
-                {/* Percentage Display */}
-                <div
-                  style={{
-                    fontSize: '2.5rem',
-                    fontWeight: 900,
-                    letterSpacing: '-0.03em',
-                    background: 'linear-gradient(135deg, #0f172a 0%, #2481cc 100%)',
-                    WebkitBackgroundClip: 'text',
-                    WebkitTextFillColor: 'transparent',
-                    marginBottom: '0.25rem',
-                  }}
-                >
-                  {mediaProgress}%
-                </div>
-
-                <h3 style={{ margin: '0 0 0.35rem', fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
-                  Loading {selectedChat.title} Media
-                </h3>
-
-                <p style={{ margin: '0 0 1.5rem', fontSize: '0.82rem', color: '#64748b' }}>
-                  {mediaProgress < 30
-                    ? 'Connecting to Telegram MTProto Archive...'
-                    : mediaProgress < 70
-                    ? 'Indexing high-res photos, videos & docs...'
-                    : mediaProgress < 100
-                    ? 'Assembling media streaming matrix...'
-                    : 'All media loaded successfully!'}
-                </p>
-
-                {/* Smooth Gradient Progress Bar */}
-                <div
-                  style={{
-                    width: '100%',
-                    height: '8px',
-                    background: '#f1f5f9',
-                    borderRadius: '9999px',
-                    overflow: 'hidden',
-                    position: 'relative',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: `${mediaProgress}%`,
-                      height: '100%',
-                      background: 'linear-gradient(90deg, #38bdf8 0%, #2481cc 50%, #1d4ed8 100%)',
-                      borderRadius: '9999px',
-                      transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                      boxShadow: '0 0 12px rgba(36, 129, 204, 0.5)',
-                    }}
-                  />
-                </div>
+                ))}
               </div>
             ) : filteredMedia.length === 0 ? (
               /* Empty Media State */
@@ -960,7 +902,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   No {categoryFilter !== 'all' ? categoryFilter : ''} Media Found
                 </h3>
                 <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
-                  No media files matched your current category or search query in this chat.
+                  No media files found in this category for {selectedChat.title}.
                 </p>
               </div>
             ) : viewMode === 'grid' ? (
@@ -1289,6 +1231,49 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Pagination / Infinite Scroll Loading Indicator or Load More Button */}
+            {hasMore && (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  padding: '2rem 0 1rem',
+                }}
+              >
+                <button
+                  onClick={handleLoadMore}
+                  disabled={loadingMore}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    padding: '0.65rem 1.5rem',
+                    borderRadius: '12px',
+                    background: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    color: '#0f172a',
+                    fontWeight: 600,
+                    fontSize: '0.88rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    transition: 'all 0.15s ease',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
+                >
+                  {loadingMore ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Loading more media from Telegram...</span>
+                    </>
+                  ) : (
+                    <span>Load More Media ({mediaList.length} loaded)</span>
+                  )}
+                </button>
               </div>
             )}
           </div>

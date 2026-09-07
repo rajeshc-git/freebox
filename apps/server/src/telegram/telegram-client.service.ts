@@ -291,6 +291,8 @@ export class TelegramClientService {
       telegramMsgId: number;
     }[];
     count: number;
+    hasMore: boolean;
+    nextOffsetId: number | null;
   }> {
     const client = await this.getClient(phone);
     const entity = await this.resolveEntity(client, chatId);
@@ -365,9 +367,15 @@ export class TelegramClientService {
       });
     }
 
+    const lastMsg = messages && messages.length > 0 ? messages[messages.length - 1] : null;
+    const nextOffsetId = lastMsg ? lastMsg.id : null;
+    const hasMore = messages && messages.length >= limit;
+
     return {
       media: results,
       count: results.length,
+      hasMore: !!hasMore,
+      nextOffsetId,
     };
   }
 
