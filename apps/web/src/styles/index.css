@@ -940,6 +940,10 @@ body {
   display: none !important;
 }
 
+.show-on-mobile-inline {
+  display: none !important;
+}
+
 .menu-item-hover {
   transition: all 0.15s ease;
 }
@@ -987,6 +991,9 @@ body {
   }
   .show-on-mobile-flex {
     display: flex !important;
+  }
+  .show-on-mobile-inline {
+    display: inline !important;
   }
   .main-top-header {
     padding: 0.65rem 0.9rem !important;

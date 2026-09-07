@@ -193,13 +193,6 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
               <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', lineHeight: 1.2 }}>
                 Live Photos Studio
               </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.78rem', color: '#64748b', marginTop: 2 }}>
-                <span>Apple LivePhotosKit JS</span>
-                <span>•</span>
-                <span style={{ color: 'var(--tg-blue)', fontWeight: 700 }}>
-                  {pairs.length} {pairs.length === 1 ? 'Live Photo' : 'Live Photos'}
-                </span>
-              </div>
             </div>
           </div>
 
@@ -264,7 +257,8 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
             }}
           >
             <ImageIcon size={16} />
-            <span>Live Photos Gallery ({pairs.length})</span>
+            <span className="hide-on-mobile">Live Photos Gallery ({pairs.length})</span>
+            <span className="show-on-mobile-inline">Live Photos</span>
           </button>
 
           <button
@@ -291,7 +285,8 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
             }}
           >
             <Smartphone size={16} />
-            <span>Upload & iPhone Guide</span>
+            <span className="hide-on-mobile">Upload & iPhone Guide</span>
+            <span className="show-on-mobile-inline">Upload</span>
           </button>
         </div>
       </div>
