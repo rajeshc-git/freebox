@@ -34,6 +34,7 @@ import { User, Folder, DriveFile, StorageMetrics } from '../types';
 import { sfx } from '../services/sound';
 import { api } from '../services/api';
 import { MoveModal } from './Modals';
+import { LivePhotosView } from './LivePhotosView';
 
 interface DriveExplorerProps {
   user: User | null;
@@ -110,6 +111,23 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
   const currentFolder = folders.find((f) => f.id === currentFolderId);
   const currentFolders = folders.filter((f) => (f.parentId || null) === (currentFolderId || null));
+
+  // Compute Live Photo pairs count
+  const livePhotosCount = React.useMemo(() => {
+    const images = new Set<string>();
+    const videos = new Set<string>();
+    files.forEach((f) => {
+      const ext = f.name.split('.').pop()?.toLowerCase() || '';
+      const base = f.name.substring(0, f.name.lastIndexOf('.')).toLowerCase();
+      if (['heic', 'jpg', 'jpeg', 'png'].includes(ext) || f.mimeType.startsWith('image/')) images.add(base);
+      if (['mov', 'mp4'].includes(ext) || f.mimeType.startsWith('video/')) videos.add(base);
+    });
+    let count = 0;
+    images.forEach((b) => {
+      if (videos.has(b)) count++;
+    });
+    return count;
+  }, [files]);
 
   // Compute folder ancestry path for breadcrumbs
   const getFolderPath = (folderId: string | null): Folder[] => {
@@ -409,6 +427,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
             { id: 'document', label: 'Documents', count: metrics?.categories?.documents || 0 },
             { id: 'audio', label: 'Audio', count: metrics?.categories?.audio || 0 },
             { id: 'archive', label: 'Archives', count: metrics?.categories?.archives || 0 },
+            { id: 'live_photo', label: 'Live Photos', count: livePhotosCount, isLive: true },
           ].map((cat) => (
             <li
               key={cat.id}
@@ -430,7 +449,23 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                 cursor: 'pointer',
               }}
             >
-              <span>{cat.label}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span>{cat.label}</span>
+                {cat.isLive && (
+                  <span
+                    style={{
+                      fontSize: '0.65rem',
+                      fontWeight: 800,
+                      background: currentCategory === cat.id ? 'var(--tg-blue)' : 'rgba(36,129,204,0.12)',
+                      color: currentCategory === cat.id ? '#fff' : 'var(--tg-blue)',
+                      padding: '0.1rem 0.35rem',
+                      borderRadius: 4,
+                    }}
+                  >
+                    LIVE
+                  </span>
+                )}
+              </div>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>{cat.count}</span>
             </li>
           ))}
@@ -859,6 +894,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                 { id: 'document', label: 'Documents' },
                 { id: 'audio', label: 'Audio' },
                 { id: 'archive', label: 'Archives' },
+                { id: 'live_photo', label: 'Live Photos ✨' },
               ].map((cat) => (
                 <button
                   key={cat.id}
@@ -885,16 +921,25 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           </div>
         </div>
 
-        {/* Scrollable File & Folder Area */}
-        <div
-          style={{ flex: 1, overflowY: 'auto', padding: '1.75rem', position: 'relative' }}
-          onDragOver={(e) => {
-            e.preventDefault();
-            if (!draggingFileId) setIsDragOver(true);
-          }}
-          onDragLeave={() => setIsDragOver(false)}
-          onDrop={handleContainerDrop}
-        >
+        {/* If Live Photos is selected, render the dedicated Apple Live Photos Studio */}
+        {currentCategory === 'live_photo' ? (
+          <LivePhotosView
+            files={files}
+            onUploadPair={(fls) => onDropFolderItems(fls.map((f) => ({ file: f, relativePath: f.name })))}
+            onPreviewFile={onPreviewFile}
+            onShareFile={onShareFile}
+          />
+        ) : (
+          /* Scrollable File & Folder Area */
+          <div
+            style={{ flex: 1, overflowY: 'auto', padding: '1.75rem', position: 'relative' }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              if (!draggingFileId) setIsDragOver(true);
+            }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={handleContainerDrop}
+          >
           {/* Drag & Drop Overlay for External Bulk Uploads */}
           {isDragOver && !draggingFileId && (
             <div
@@ -1478,7 +1523,6 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
               </div>
             )}
           </div>
-        </div>
 
         {/* Floating Batch Actions Bar (100% Light Theme with Smooth Spring Enter/Exit Animation) */}
         <div
@@ -1623,6 +1667,8 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
             </button>
           </div>
         </div>
+      </div>
+      )}
 
         {/* Move to Folder Modal */}
         <MoveModal
