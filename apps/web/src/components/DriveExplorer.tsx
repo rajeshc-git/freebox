@@ -34,7 +34,7 @@ import {
 import { User, Folder, DriveFile, StorageMetrics } from '../types';
 import { sfx } from '../services/sound';
 import { api } from '../services/api';
-import { MoveModal } from './Modals';
+import { MoveModal, DeleteFileModal, DeleteBatchFilesModal } from './Modals';
 import { LivePhotosView, LivePhotoPair } from './LivePhotosView';
 import { SmartImage } from './SmartImage';
 
@@ -110,6 +110,8 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
   const [draggingFileId, setDraggingFileId] = useState<string | null>(null);
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const [filesForMove, setFilesForMove] = useState<DriveFile[]>([]);
+  const [fileToDelete, setFileToDelete] = useState<DriveFile | null>(null);
+  const [isBatchDeleteOpen, setIsBatchDeleteOpen] = useState(false);
 
   const formatSize = (bytes: number) => {
     if (bytes >= 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
@@ -191,8 +193,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
         if (selectedIds.length > 0) {
           e.preventDefault();
           sfx.playClick();
-          selectedIds.forEach((id) => onDeleteFile(id));
-          setSelectedIds([]);
+          setIsBatchDeleteOpen(true);
         }
       }
 
@@ -1393,9 +1394,10 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                               <Share2 size={14} color="#94a3b8" />
                             </button>
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 sfx.playClick();
-                                onDeleteFile(file.id);
+                                setFileToDelete(file);
                               }}
                               style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
                               title="Delete"
@@ -1645,9 +1647,10 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                                 <Share2 size={16} />
                               </button>
                               <button
-                                onClick={() => {
+                                onClick={(e) => {
+                                  e.stopPropagation();
                                   sfx.playClick();
-                                  onDeleteFile(file.id);
+                                  setFileToDelete(file);
                                 }}
                                 style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
                                 title="Delete"
@@ -1770,8 +1773,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
             <button
               onClick={() => {
                 sfx.playClick();
-                selectedIds.forEach((id) => onDeleteFile(id));
-                setSelectedIds([]);
+                setIsBatchDeleteOpen(true);
               }}
               style={{
                 background: '#fef2f2',
@@ -1824,6 +1826,29 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           onMove={(ids, targetId) => {
             onMoveFiles(ids, targetId);
             setSelectedIds([]);
+          }}
+        />
+
+        {/* Delete Single File Modal */}
+        <DeleteFileModal
+          isOpen={Boolean(fileToDelete)}
+          file={fileToDelete}
+          onClose={() => setFileToDelete(null)}
+          onConfirm={(id) => {
+            onDeleteFile(id);
+            setFileToDelete(null);
+          }}
+        />
+
+        {/* Delete Batch Files Modal */}
+        <DeleteBatchFilesModal
+          isOpen={isBatchDeleteOpen}
+          count={selectedIds.length}
+          onClose={() => setIsBatchDeleteOpen(false)}
+          onConfirm={() => {
+            selectedIds.forEach((id) => onDeleteFile(id));
+            setSelectedIds([]);
+            setIsBatchDeleteOpen(false);
           }}
         />
       </main>

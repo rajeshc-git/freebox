@@ -40,9 +40,10 @@ interface PreviewModalProps {
   file: DriveFile | null;
   onClose: () => void;
   onShare: (file: DriveFile) => void;
+  onDelete?: (file: DriveFile) => void;
 }
 
-export const PreviewModal: React.FC<PreviewModalProps> = ({ file, onClose, onShare }) => {
+export const PreviewModal: React.FC<PreviewModalProps> = ({ file, onClose, onShare, onDelete }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [copied, setCopied] = useState(false);
@@ -255,6 +256,29 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({ file, onClose, onSha
             >
               <Download size={14} /> Download
             </button>
+
+            {onDelete && (
+              <button
+                onClick={() => onDelete(file)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  background: '#fef2f2',
+                  border: '1px solid #fee2e2',
+                  color: '#ef4444',
+                  padding: '0.45rem 0.85rem',
+                  borderRadius: 8,
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+                title="Delete File"
+              >
+                <Trash2 size={14} /> Delete
+              </button>
+            )}
 
             <button
               onClick={onClose}
@@ -1151,6 +1175,263 @@ export const DeleteFolderModal: React.FC<DeleteFolderModalProps> = ({ isOpen, fo
             }}
           >
             Delete Folder
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export interface DeleteFileModalProps {
+  isOpen: boolean;
+  file: DriveFile | null;
+  onClose: () => void;
+  onConfirm: (id: string) => void;
+}
+
+export const DeleteFileModal: React.FC<DeleteFileModalProps> = ({ isOpen, file, onClose, onConfirm }) => {
+  if (!isOpen || !file) return null;
+
+  return (
+    <div className="modal-backdrop" onClick={onClose} style={{ zIndex: 10000 }}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#ffffff',
+          borderRadius: 24,
+          padding: '2rem',
+          width: '100%',
+          maxWidth: 420,
+          position: 'relative',
+          boxShadow: '0 20px 48px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+          animation: 'popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          textAlign: 'center',
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '1.25rem',
+            right: '1.25rem',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '1.1rem',
+            color: '#64748b',
+          }}
+        >
+          ✕
+        </button>
+
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 18,
+            background: '#fef2f2',
+            border: '1px solid #fee2e2',
+            color: '#ef4444',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 1.25rem',
+          }}
+        >
+          <Trash2 size={26} />
+        </div>
+
+        <h3
+          style={{
+            fontSize: '1.25rem',
+            fontWeight: 800,
+            color: '#0f172a',
+            marginBottom: '0.5rem',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            padding: '0 0.5rem',
+          }}
+          title={file.name}
+        >
+          Delete "{file.name}"?
+        </h3>
+
+        <p
+          style={{
+            fontSize: '0.88rem',
+            color: '#64748b',
+            lineHeight: 1.5,
+            marginBottom: '1.75rem',
+          }}
+        >
+          Are you sure you want to delete this file? This will permanently remove it from FreeBox and your Telegram Cloud storage.
+        </p>
+
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1,
+              padding: '0.75rem 1rem',
+              borderRadius: 12,
+              background: '#f1f5f9',
+              border: 'none',
+              color: '#475569',
+              fontWeight: 600,
+              fontSize: '0.92rem',
+              cursor: 'pointer',
+              transition: 'background 0.15s ease',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              sfx.playClick();
+              onConfirm(file.id);
+            }}
+            style={{
+              flex: 1,
+              padding: '0.75rem 1rem',
+              borderRadius: 12,
+              background: '#ef4444',
+              border: 'none',
+              color: '#ffffff',
+              fontWeight: 700,
+              fontSize: '0.92rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)',
+              transition: 'background 0.15s ease',
+            }}
+          >
+            Delete File
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export interface DeleteBatchFilesModalProps {
+  isOpen: boolean;
+  count: number;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+export const DeleteBatchFilesModal: React.FC<DeleteBatchFilesModalProps> = ({ isOpen, count, onClose, onConfirm }) => {
+  if (!isOpen || count <= 0) return null;
+
+  return (
+    <div className="modal-backdrop" onClick={onClose} style={{ zIndex: 10000 }}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#ffffff',
+          borderRadius: 24,
+          padding: '2rem',
+          width: '100%',
+          maxWidth: 420,
+          position: 'relative',
+          boxShadow: '0 20px 48px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+          animation: 'popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          textAlign: 'center',
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '1.25rem',
+            right: '1.25rem',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '1.1rem',
+            color: '#64748b',
+          }}
+        >
+          ✕
+        </button>
+
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 18,
+            background: '#fef2f2',
+            border: '1px solid #fee2e2',
+            color: '#ef4444',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 1.25rem',
+          }}
+        >
+          <Trash2 size={26} />
+        </div>
+
+        <h3
+          style={{
+            fontSize: '1.25rem',
+            fontWeight: 800,
+            color: '#0f172a',
+            marginBottom: '0.5rem',
+          }}
+        >
+          Delete {count} {count === 1 ? 'File' : 'Files'}?
+        </h3>
+
+        <p
+          style={{
+            fontSize: '0.88rem',
+            color: '#64748b',
+            lineHeight: 1.5,
+            marginBottom: '1.75rem',
+          }}
+        >
+          Are you sure you want to delete {count} selected {count === 1 ? 'file' : 'files'}? This will permanently remove {count === 1 ? 'it' : 'them'} from FreeBox and your Telegram Cloud storage.
+        </p>
+
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1,
+              padding: '0.75rem 1rem',
+              borderRadius: 12,
+              background: '#f1f5f9',
+              border: 'none',
+              color: '#475569',
+              fontWeight: 600,
+              fontSize: '0.92rem',
+              cursor: 'pointer',
+              transition: 'background 0.15s ease',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              sfx.playClick();
+              onConfirm();
+            }}
+            style={{
+              flex: 1,
+              padding: '0.75rem 1rem',
+              borderRadius: 12,
+              background: '#ef4444',
+              border: 'none',
+              color: '#ffffff',
+              fontWeight: 700,
+              fontSize: '0.92rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)',
+              transition: 'background 0.15s ease',
+            }}
+          >
+            Delete {count > 1 ? `(${count})` : ''}
           </button>
         </div>
       </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { OtpModal } from './components/OtpModal';
 import { DriveExplorer } from './components/DriveExplorer';
-import { PreviewModal, ShareModal, NewFolderModal, RenameFolderModal, DeleteFolderModal, TorrentQueueManager, LogoutConfirmModal } from './components/Modals';
+import { PreviewModal, ShareModal, NewFolderModal, RenameFolderModal, DeleteFolderModal, DeleteFileModal, TorrentQueueManager, LogoutConfirmModal } from './components/Modals';
 import { PublicShareView } from './components/PublicShareView';
 import { CommandPalette } from './components/CommandPalette';
 import { api } from './services/api';
@@ -89,6 +89,7 @@ export const App: React.FC = () => {
   const [isNewFolderOpen, setIsNewFolderOpen] = useState(false);
   const [folderToRename, setFolderToRename] = useState<Folder | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
+  const [fileToDeleteFromPreview, setFileToDeleteFromPreview] = useState<DriveFile | null>(null);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
 
   // References
@@ -693,6 +694,21 @@ export const App: React.FC = () => {
         onShare={(f) => {
           setPreviewFile(null);
           setShareFile(f);
+        }}
+        onDelete={(f) => {
+          setPreviewFile(null);
+          setFileToDeleteFromPreview(f);
+        }}
+      />
+
+      {/* Delete File from Preview Confirmation Modal */}
+      <DeleteFileModal
+        isOpen={Boolean(fileToDeleteFromPreview)}
+        file={fileToDeleteFromPreview}
+        onClose={() => setFileToDeleteFromPreview(null)}
+        onConfirm={(id) => {
+          handleDeleteFile(id);
+          setFileToDeleteFromPreview(null);
         }}
       />
 
