@@ -114,21 +114,38 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
   const currentFolders = folders.filter((f) => (f.parentId || null) === (currentFolderId || null));
 
   // Compute Live Photo pairs count
-  const livePhotosCount = React.useMemo(() => {
+  const pairedLivePhotoBaseNames = React.useMemo(() => {
     const images = new Set<string>();
     const videos = new Set<string>();
     files.forEach((f) => {
       const ext = f.name.split('.').pop()?.toLowerCase() || '';
-      const base = f.name.substring(0, f.name.lastIndexOf('.')).toLowerCase();
+      const lastDot = f.name.lastIndexOf('.');
+      const base = lastDot > 0 ? f.name.substring(0, lastDot).toLowerCase() : f.name.toLowerCase();
       if (['heic', 'jpg', 'jpeg', 'png'].includes(ext) || f.mimeType.startsWith('image/')) images.add(base);
       if (['mov', 'mp4'].includes(ext) || f.mimeType.startsWith('video/')) videos.add(base);
     });
-    let count = 0;
+    const pairs = new Set<string>();
     images.forEach((b) => {
-      if (videos.has(b)) count++;
+      if (videos.has(b)) pairs.add(b);
     });
-    return count;
+    return pairs;
   }, [files]);
+
+  const livePhotosCount = pairedLivePhotoBaseNames.size;
+
+  // Files displayed in current explorer view:
+  // - In 'live_photo' view, all files are passed to LivePhotosView
+  // - In normal folders & My Files, paired Live Photo .HEIC & .MOV are hidden from normal list so they only render inside Live Photos
+  // - If a standalone .HEIC or standalone .MOV is uploaded without a pair, it shows normally in My Files!
+  const displayedFiles = React.useMemo(() => {
+    if (currentCategory === 'live_photo') return files;
+
+    return files.filter((f) => {
+      const lastDot = f.name.lastIndexOf('.');
+      const base = lastDot > 0 ? f.name.substring(0, lastDot).toLowerCase() : f.name.toLowerCase();
+      return !pairedLivePhotoBaseNames.has(base);
+    });
+  }, [files, currentCategory, pairedLivePhotoBaseNames]);
 
   // Compute folder ancestry path for breadcrumbs
   const getFolderPath = (folderId: string | null): Folder[] => {
@@ -197,10 +214,10 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
   const selectAll = () => {
     sfx.playClick();
-    if (selectedIds.length === files.length) {
+    if (selectedIds.length === displayedFiles.length && displayedFiles.length > 0) {
       setSelectedIds([]);
     } else {
-      setSelectedIds(files.map((f) => f.id));
+      setSelectedIds(displayedFiles.map((f) => f.id));
     }
   };
 
@@ -347,8 +364,8 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
         <ul style={{ padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', listStyle: 'none' }}>
           {[
-            { id: 'all', label: 'My Files', icon: FolderIcon, count: files.length },
-            { id: 'starred', label: 'Starred', icon: Star, count: files.filter((f) => f.starred).length },
+            { id: 'all', label: 'My Files', icon: FolderIcon, count: displayedFiles.length },
+            { id: 'starred', label: 'Starred', icon: Star, count: displayedFiles.filter((f) => f.starred).length },
             { id: 'trash', label: 'Trash', icon: Trash2, count: 0 },
           ].map((item) => (
             <li
@@ -879,7 +896,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                 flexShrink: 0,
               }}
             >
-              {selectedIds.length === files.length && files.length > 0 ? (
+              {selectedIds.length === displayedFiles.length && displayedFiles.length > 0 ? (
                 <CheckSquare size={16} color="var(--tg-blue)" />
               ) : (
                 <Square size={16} />
@@ -1085,10 +1102,10 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                 justifyContent: 'space-between',
               }}
             >
-              <span>Files ({files.length})</span>
+              <span>Files ({displayedFiles.length})</span>
             </div>
 
-            {files.length === 0 ? (
+            {displayedFiles.length === 0 ? (
               <div
                 style={{
                   background: '#fff',
@@ -1130,7 +1147,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
             ) : viewMode === 'grid' ? (
               /* Grid View */
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.25rem' }}>
-                {files.map((file) => {
+                {displayedFiles.map((file) => {
                   const isSelected = selectedIds.includes(file.id);
                   return (
                     <div
@@ -1333,7 +1350,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                     >
                       <th style={{ padding: '0.85rem 1.25rem', width: 40 }}>
                         <button onClick={selectAll} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>
-                          {selectedIds.length === files.length && files.length > 0 ? (
+                          {selectedIds.length === displayedFiles.length && displayedFiles.length > 0 ? (
                             <CheckSquare size={16} color="var(--tg-blue)" />
                           ) : (
                             <Square size={16} />
@@ -1365,48 +1382,33 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                         onMouseEnter={(e) => (e.currentTarget.style.background = '#eff6ff')}
                         onMouseLeave={(e) => (e.currentTarget.style.background = '#fafcff')}
                       >
-                        <td style={{ padding: '0.85rem 1.25rem', width: 40 }}>
-                          <div
-                            style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: 6,
-                              background: `${fld.color || '#3b82f6'}15`,
-                              color: fld.color || 'var(--tg-blue)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <FolderIcon size={16} />
-                          </div>
+                        <td style={{ padding: '0.85rem 1.25rem' }}>
+                          <FolderIcon size={18} color={fld.color || '#3b82f6'} fill={fld.color || '#3b82f6'} />
                         </td>
                         <td style={{ padding: '0.85rem 1.25rem', fontWeight: 600 }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ color: '#0f172a' }}>{fld.name}</span>
+                            <span>{fld.name}</span>
                           </div>
                         </td>
-                        <td className="hide-on-mobile" style={{ padding: '0.85rem 1.25rem', fontSize: '0.78rem', color: 'var(--text-light)', fontWeight: 500 }}>
-                          Folder
+                        <td className="hide-on-mobile" style={{ padding: '0.85rem 1.25rem', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>
+                          folder_{fld.id.slice(0, 8)}
                         </td>
-                        <td style={{ padding: '0.85rem 1.25rem', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                        <td style={{ padding: '0.85rem 1.25rem', color: 'var(--text-light)', fontSize: '0.82rem' }}>
                           —
                         </td>
                         <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
-                          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.45rem' }}>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                sfx.playClick();
                                 onNavigateFolder(fld.id);
                               }}
                               style={{
-                                background: '#eff6ff',
-                                border: '1px solid #bfdbfe',
-                                color: 'var(--tg-blue)',
+                                background: '#f1f5f9',
+                                border: 'none',
                                 borderRadius: 6,
-                                padding: '0.25rem 0.65rem',
-                                fontSize: '0.75rem',
+                                padding: '0.25rem 0.6rem',
+                                fontSize: '0.78rem',
                                 fontWeight: 600,
                                 cursor: 'pointer',
                               }}
@@ -1418,7 +1420,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                       </tr>
                     ))}
 
-                    {files.map((file) => {
+                    {displayedFiles.map((file) => {
                       const isSelected = selectedIds.includes(file.id);
                       return (
                         <tr
