@@ -1724,12 +1724,53 @@ export const TorrentQueueManager: React.FC<TorrentQueueManagerProps> = ({
   onResumeAll,
 }) => {
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [autoCloseCountdown, setAutoCloseCountdown] = useState<number | null>(null);
+  const [isFadingOut, setIsFadingOut] = useState(false);
 
-  if (!isOpen || queue.length === 0) return null;
-
-  const completed = queue.filter((i) => i.progress >= 100).length;
+  const completed = queue.filter((i) => i.progress >= 100 || i.state === 'completed').length;
+  const isAllDone = queue.length > 0 && completed === queue.length;
   const activeCount = queue.filter((i) => i.state === 'uploading').length;
   const isAllPaused = queue.every((i) => i.state === 'paused' || i.progress >= 100);
+
+  // Auto-hide after 10 seconds of all uploads completed (with smooth fade-out)
+  useEffect(() => {
+    if (!isOpen || !isAllDone) {
+      setAutoCloseCountdown(null);
+      setIsFadingOut(false);
+      return;
+    }
+
+    // Start 10s timer
+    if (autoCloseCountdown === null) {
+      setAutoCloseCountdown(10);
+    }
+
+    if (isHovered) {
+      return; // Pause timer while user is hovering
+    }
+
+    const timer = setInterval(() => {
+      setAutoCloseCountdown((prev) => {
+        const current = prev === null ? 10 : prev;
+        if (current <= 1) {
+          setIsFadingOut(true);
+          setTimeout(() => {
+            onClose();
+          }, 800);
+          return 0;
+        }
+        if (current <= 2) {
+          setIsFadingOut(true);
+        }
+        return current - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isOpen, isAllDone, isHovered, autoCloseCountdown, onClose]);
+
+  if (!isOpen || queue.length === 0) return null;
 
   // Calculate global aggregate upload speed
   const totalSpeed = queue
@@ -1742,11 +1783,19 @@ export const TorrentQueueManager: React.FC<TorrentQueueManagerProps> = ({
     return Math.round(bytes / 1024) + ' KB';
   };
 
+  const animStyle: React.CSSProperties = {
+    opacity: isFadingOut ? 0 : 1,
+    transform: isFadingOut ? 'translateY(18px) scale(0.97)' : 'translateY(0) scale(1)',
+    transition: 'opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1)',
+  };
+
   // Minimized Sleek Floating Pill (100% Light Mode)
   if (isMinimized) {
     return (
       <div
         onClick={() => setIsMinimized(false)}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
         style={{
           position: 'fixed',
           bottom: '1rem',
@@ -1762,16 +1811,21 @@ export const TorrentQueueManager: React.FC<TorrentQueueManagerProps> = ({
           gap: '0.75rem',
           cursor: 'pointer',
           border: '1.5px solid #e0f2fe',
-          animation: 'popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          ...animStyle,
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#0284c7', fontWeight: 800, fontSize: '0.82rem' }}>
-          <Zap size={14} fill="#38bdf8" />
-          <span>↑ {totalSpeed > 0 ? totalSpeed.toFixed(1) : (activeCount > 0 ? '34.5' : '0.0')} MB/s</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: isAllDone ? '#10b981' : '#0284c7', fontWeight: 800, fontSize: '0.82rem' }}>
+          {isAllDone ? <Check size={14} strokeWidth={3} color="#10b981" /> : <Zap size={14} fill="#38bdf8" />}
+          <span>{isAllDone ? 'Completed ✓' : `↑ ${totalSpeed > 0 ? totalSpeed.toFixed(1) : (activeCount > 0 ? '34.5' : '0.0')} MB/s`}</span>
         </div>
         <span style={{ fontSize: '0.76rem', color: '#64748b', fontWeight: 600 }}>
           {completed}/{queue.length} files
         </span>
+        {isAllDone && autoCloseCountdown !== null && (
+          <span style={{ fontSize: '0.72rem', color: '#10b981', fontWeight: 700 }}>
+            ({autoCloseCountdown}s)
+          </span>
+        )}
         <ChevronUp size={15} color="#0284c7" />
       </div>
     );
@@ -1779,6 +1833,8 @@ export const TorrentQueueManager: React.FC<TorrentQueueManagerProps> = ({
 
   return (
     <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         position: 'fixed',
         bottom: '1rem',
@@ -1793,7 +1849,7 @@ export const TorrentQueueManager: React.FC<TorrentQueueManagerProps> = ({
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        animation: 'popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+        ...animStyle,
       }}
     >
       {/* Light Mode Futuristic Header */}
@@ -1813,15 +1869,15 @@ export const TorrentQueueManager: React.FC<TorrentQueueManagerProps> = ({
               width: 32,
               height: 32,
               borderRadius: 10,
-              background: '#eff6ff',
-              color: '#0284c7',
+              background: isAllDone ? '#ecfdf5' : '#eff6ff',
+              color: isAllDone ? '#10b981' : '#0284c7',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
             }}
           >
-            <Zap size={17} fill="#38bdf8" />
+            {isAllDone ? <Check size={18} strokeWidth={3} /> : <Zap size={17} fill="#38bdf8" />}
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
@@ -1831,19 +1887,21 @@ export const TorrentQueueManager: React.FC<TorrentQueueManagerProps> = ({
               <span
                 style={{
                   fontSize: '0.62rem',
-                  background: '#e0f2fe',
-                  color: '#0284c7',
+                  background: isAllDone ? '#d1fae5' : '#e0f2fe',
+                  color: isAllDone ? '#047857' : '#0284c7',
                   padding: '0.12rem 0.45rem',
                   borderRadius: 9999,
                   fontWeight: 800,
                   letterSpacing: '0.02em',
                 }}
               >
-                MULTI-THREADED
+                {isAllDone ? 'ALL COMPLETED' : 'MULTI-THREADED'}
               </span>
             </div>
-            <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: 1, fontWeight: 500 }}>
-              {activeCount} active · {completed} of {queue.length} completed
+            <div style={{ fontSize: '0.74rem', color: isAllDone ? '#059669' : '#64748b', marginTop: 1, fontWeight: isAllDone ? 600 : 500 }}>
+              {isAllDone
+                ? `✓ All uploaded · Auto-closing in ${autoCloseCountdown ?? 10}s`
+                : `${activeCount} active · ${completed} of ${queue.length} completed`}
             </div>
           </div>
         </div>
