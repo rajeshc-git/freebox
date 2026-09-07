@@ -18,6 +18,7 @@ import {
 import { DriveFile } from '../types';
 import { api } from '../services/api';
 import { sfx } from '../services/sound';
+import { SmartImage } from './SmartImage';
 
 interface LivePhotoPair {
   id: string;
@@ -427,9 +428,10 @@ const LivePhotoCard: React.FC<{
       {/* Media Visual Area */}
       <div style={{ position: 'relative', width: '100%', height: 260, background: '#0f172a' }}>
         {/* Still Photo Base */}
-        <img
+        <SmartImage
           src={api.getFileStreamUrl(pair.photoFile.id)}
           alt={pair.baseName}
+          filename={pair.photoFile.name}
           style={{
             width: '100%',
             height: '100%',

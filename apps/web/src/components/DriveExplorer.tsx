@@ -35,6 +35,7 @@ import { sfx } from '../services/sound';
 import { api } from '../services/api';
 import { MoveModal } from './Modals';
 import { LivePhotosView } from './LivePhotosView';
+import { SmartImage } from './SmartImage';
 
 interface DriveExplorerProps {
   user: User | null;
@@ -1170,9 +1171,10 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                         }}
                       >
                         {file.type === 'image' && file.telegramMsgId > 0 ? (
-                          <img
+                          <SmartImage
                             src={api.getFileStreamUrl(file.id)}
                             alt={file.name}
+                            filename={file.name}
                             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                           />
                         ) : (

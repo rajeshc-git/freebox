@@ -71,7 +71,12 @@ export class DriveService {
     }
 
     if (query.category && query.category !== 'all') {
-      where.type = query.category;
+      if (query.category === 'live_photo') {
+        where.type = { in: ['image', 'video'] };
+        delete where.folderId;
+      } else {
+        where.type = query.category;
+      }
     }
 
     if (query.search) {

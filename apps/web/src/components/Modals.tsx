@@ -32,6 +32,7 @@ import {
 import { DriveFile, UploadQueueItem, Folder } from '../types';
 import { sfx } from '../services/sound';
 import { api } from '../services/api';
+import { SmartImage } from './SmartImage';
 
 interface PreviewModalProps {
   file: DriveFile | null;
@@ -300,9 +301,10 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({ file, onClose, onSha
                 overflow: 'hidden',
               }}
             >
-              <img
+              <SmartImage
                 src={api.getFileStreamUrl(file.id)}
                 alt={file.name}
+                filename={file.name}
                 style={{
                   maxWidth: '100%',
                   maxHeight: '100%',
