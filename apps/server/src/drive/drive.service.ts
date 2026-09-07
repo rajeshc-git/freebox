@@ -122,8 +122,38 @@ export class DriveService {
       orderBy: { createdAt: 'desc' },
     });
 
+    // Exclude paired Live Photo files (.heic/.jpg + .mov/.mp4) from normal categories and My Files
+    let finalFiles = files;
+    if (query.category !== 'live_photo' && query.nav !== 'trash') {
+      const allMedia = await this.prisma.file.findMany({
+        where: { isTrashed: false, type: { in: ['image', 'video'] } },
+        select: { name: true, mimeType: true },
+      });
+      const images = new Set<string>();
+      const videos = new Set<string>();
+      allMedia.forEach((f) => {
+        const ext = f.name.split('.').pop()?.toLowerCase() || '';
+        const lastDot = f.name.lastIndexOf('.');
+        const base = lastDot > 0 ? f.name.substring(0, lastDot).toLowerCase() : f.name.toLowerCase();
+        if (['heic', 'jpg', 'jpeg', 'png'].includes(ext) || f.mimeType?.startsWith('image/')) images.add(base);
+        if (['mov', 'mp4'].includes(ext) || f.mimeType?.startsWith('video/')) videos.add(base);
+      });
+      const pairedBaseNames = new Set<string>();
+      images.forEach((b) => {
+        if (videos.has(b)) pairedBaseNames.add(b);
+      });
+
+      if (pairedBaseNames.size > 0) {
+        finalFiles = files.filter((f) => {
+          const lastDot = f.name.lastIndexOf('.');
+          const base = lastDot > 0 ? f.name.substring(0, lastDot).toLowerCase() : f.name.toLowerCase();
+          return !pairedBaseNames.has(base);
+        });
+      }
+    }
+
     // Add stream URLs for files that have a real telegramMsgId
-    return files.map(f => ({
+    return finalFiles.map(f => ({
       ...f,
       previewUrl: f.telegramMsgId > 0 ? `/api/drive/files/${f.id}/stream` : null,
       thumbnailUrl: f.telegramMsgId > 0 ? `/api/drive/files/${f.id}/stream` : null,
@@ -447,13 +477,20 @@ export class DriveService {
       if (['mov', 'mp4'].includes(ext) || f.mimeType?.startsWith('video/')) videos.add(base);
     });
 
-    let livePhotosCount = 0;
+    const pairedBaseNames = new Set<string>();
     images.forEach((b) => {
-      if (videos.has(b)) livePhotosCount++;
+      if (videos.has(b)) pairedBaseNames.add(b);
+    });
+    const livePhotosCount = pairedBaseNames.size;
+
+    const nonLiveFiles = files.filter((f) => {
+      const lastDot = f.name.lastIndexOf('.');
+      const base = lastDot > 0 ? f.name.substring(0, lastDot).toLowerCase() : f.name.toLowerCase();
+      return !pairedBaseNames.has(base);
     });
 
     return {
-      totalFiles,
+      totalFiles: nonLiveFiles.length,
       totalBytes,
       trashCount,
       livePhotosCount,
@@ -461,12 +498,12 @@ export class DriveService {
       isUnlimited: true,
       provider: 'Telegram MTProto Cloud',
       categories: {
-        images: files.filter(f => f.type === 'image').length,
-        videos: files.filter(f => f.type === 'video').length,
-        documents: files.filter(f => f.type === 'document').length,
-        audio: files.filter(f => f.type === 'audio').length,
-        archives: files.filter(f => f.type === 'archive').length,
-        starred: files.filter(f => f.starred).length,
+        images: nonLiveFiles.filter(f => f.type === 'image').length,
+        videos: nonLiveFiles.filter(f => f.type === 'video').length,
+        documents: nonLiveFiles.filter(f => f.type === 'document').length,
+        audio: nonLiveFiles.filter(f => f.type === 'audio').length,
+        archives: nonLiveFiles.filter(f => f.type === 'archive').length,
+        starred: nonLiveFiles.filter(f => f.starred).length,
         trash: trashCount,
         live_photo: livePhotosCount,
       },

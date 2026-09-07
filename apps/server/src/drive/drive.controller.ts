@@ -157,6 +157,11 @@ export class DriveController {
     return this.driveService.getStorageMetrics();
   }
 
+  @Get('storage-metrics')
+  async getStorageMetricsAlias() {
+    return this.driveService.getStorageMetrics();
+  }
+
   /**
    * Upload file to Telegram MTProto storage.
    */
