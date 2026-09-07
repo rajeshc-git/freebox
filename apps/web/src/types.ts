@@ -99,7 +99,10 @@ export interface TelegramChatMedia {
   type: 'image' | 'video' | 'document' | 'audio';
   mimeType: string;
   fileName: string;
+  name?: string;
   size: number;
   date: number;
-  streamUrl: string;
+  streamUrl?: string;
+  telegramMsgId?: number;
 }
+

@@ -236,6 +236,39 @@ export class TelegramClientService {
     });
   }
 
+  private async resolveEntity(client: any, chatId: string): Promise<any> {
+    try {
+      if (/^-?\d+$/.test(chatId)) {
+        try {
+          return await client.getEntity(BigInt(chatId));
+        } catch {
+          return await client.getEntity(chatId);
+        }
+      }
+      return await client.getEntity(chatId);
+    } catch (e1: any) {
+      try {
+        const dialogs = await client.getDialogs({ folder: 1 });
+        const cleanId = chatId.replace(/^-100/, '').replace(/^-/, '');
+        const found = dialogs.find(
+          (d: any) =>
+            d.id?.toString() === chatId ||
+            d.id?.toString() === cleanId ||
+            (d.entity as any)?.id?.toString() === chatId ||
+            (d.entity as any)?.id?.toString() === cleanId ||
+            `-100${(d.entity as any)?.id?.toString()}` === chatId,
+        );
+        if (found?.entity) return found.entity;
+      } catch (e2) {}
+
+      try {
+        return await client.getInputEntity(chatId);
+      } catch (e3) {
+        throw new Error(`Could not resolve Telegram chat/channel ${chatId}: ${e1?.message || e1}`);
+      }
+    }
+  }
+
   /**
    * Fetch media messages from a specific Telegram chat/channel.
    */
@@ -243,30 +276,24 @@ export class TelegramClientService {
     phone: string,
     chatId: string,
     category?: string,
-    limit = 60,
+    limit = 100,
     offsetId?: number,
   ): Promise<{
-    id: number;
-    chatId: string;
-    name: string;
-    size: number;
-    type: 'image' | 'video' | 'document' | 'audio';
-    mimeType: string;
-    date: string;
-    telegramMsgId: number;
-  }[]> {
+    media: {
+      id: number;
+      chatId: string;
+      name: string;
+      fileName: string;
+      size: number;
+      type: 'image' | 'video' | 'document' | 'audio';
+      mimeType: string;
+      date: number;
+      telegramMsgId: number;
+    }[];
+    count: number;
+  }> {
     const client = await this.getClient(phone);
-
-    let entityInput: any = chatId;
-    if (/^-?\d+$/.test(chatId)) {
-      try {
-        entityInput = BigInt(chatId);
-      } catch {
-        entityInput = chatId;
-      }
-    }
-
-    const entity = await client.getEntity(entityInput);
+    const entity = await this.resolveEntity(client, chatId);
 
     let filter: any = undefined;
     if (category === 'image' || category === 'photo') {
@@ -327,17 +354,21 @@ export class TelegramClientService {
 
       results.push({
         id: msg.id,
-        chatId,
+        chatId: chatId.toString(),
         name,
+        fileName: name,
         size,
         type,
         mimeType,
-        date: new Date(msg.date * 1000).toISOString(),
+        date: msg.date || 0,
         telegramMsgId: msg.id,
       });
     }
 
-    return results;
+    return {
+      media: results,
+      count: results.length,
+    };
   }
 
   /**
@@ -349,17 +380,7 @@ export class TelegramClientService {
     messageId: number,
   ): Promise<{ buffer: Buffer; mimeType: string; fileName: string }> {
     const client = await this.getClient(phone);
-
-    let entityInput: any = chatId;
-    if (/^-?\d+$/.test(chatId)) {
-      try {
-        entityInput = BigInt(chatId);
-      } catch {
-        entityInput = chatId;
-      }
-    }
-
-    const entity = await client.getEntity(entityInput);
+    const entity = await this.resolveEntity(client, chatId);
     const messages = await client.getMessages(entity, { ids: [messageId] });
 
     if (!messages || messages.length === 0 || !messages[0]) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Archive,
   ArrowLeft,
@@ -11,12 +11,8 @@ import {
   FileText,
   Music,
   Download,
-  ExternalLink,
   X,
   Play,
-  Volume2,
-  Calendar,
-  HardDrive,
   Users,
   Radio,
   User as UserIcon,
@@ -25,6 +21,8 @@ import {
   Sparkles,
   Info,
   Layers,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import { TelegramArchivedChat, TelegramChatMedia } from '../types';
 import { api } from '../services/api';
@@ -47,13 +45,16 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
 
   const [loadingChats, setLoadingChats] = useState(true);
   const [loadingMedia, setLoadingMedia] = useState(false);
+  const [mediaProgress, setMediaProgress] = useState(0);
   const [mediaList, setMediaList] = useState<TelegramChatMedia[]>([]);
   const [activeMediaIndex, setActiveMediaIndex] = useState<number | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const progressIntervalRef = useRef<any>(null);
+
   // Format bytes helper
   const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B';
+    if (!bytes || isNaN(bytes) || bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -77,10 +78,15 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
     setErrorMsg(null);
     try {
       const data = await api.getArchivedChats();
-      setChats(data);
+      if (Array.isArray(data)) {
+        setChats(data);
+      } else {
+        setChats([]);
+      }
     } catch (err: any) {
       console.error('Failed to load archived chats:', err);
-      setErrorMsg(err.message || 'Failed to fetch archived chats from Telegram');
+      setErrorMsg(err?.message || 'Failed to fetch archived chats from Telegram');
+      setChats([]);
     } finally {
       setLoadingChats(false);
     }
@@ -90,17 +96,51 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
     fetchArchivedChats();
   }, [fetchArchivedChats]);
 
-  // Fetch media for selected chat
+  // Fetch media for selected chat with 0% -> 100% progress animation
   const fetchChatMedia = useCallback(async (chatId: string, category: MediaCategory) => {
     setLoadingMedia(true);
+    setMediaProgress(5);
+    setErrorMsg(null);
+
+    // Clear any previous interval
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+    }
+
+    // Smooth progress simulation up to 92%
+    progressIntervalRef.current = setInterval(() => {
+      setMediaProgress((prev) => {
+        if (prev >= 92) {
+          return 92;
+        }
+        const step = Math.max(2, Math.floor((95 - prev) * 0.15));
+        return Math.min(92, prev + step);
+      });
+    }, 150);
+
     try {
-      const res = await api.getChatMedia(chatId, category, 100);
-      setMediaList(res.media);
+      const res: any = await api.getChatMedia(chatId, category, 100);
+      let list: TelegramChatMedia[] = [];
+
+      if (Array.isArray(res)) {
+        list = res;
+      } else if (res && Array.isArray(res.media)) {
+        list = res.media;
+      }
+
+      // Finish to 100% smoothly
+      setMediaProgress(100);
+      setTimeout(() => {
+        setMediaList(list);
+        setLoadingMedia(false);
+        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+      }, 350);
     } catch (err: any) {
       console.error('Failed to load chat media:', err);
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
       setMediaList([]);
-    } finally {
       setLoadingMedia(false);
+      setErrorMsg(err?.message || 'Failed to load media files from this chat');
     }
   }, []);
 
@@ -108,33 +148,42 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
     if (selectedChat) {
       fetchChatMedia(selectedChat.id, categoryFilter);
     }
+    return () => {
+      if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+    };
   }, [selectedChat, categoryFilter, fetchChatMedia]);
 
-  // Filtered chats
+  // Filtered chats (Defensive)
   const filteredChats = useMemo(() => {
-    if (!chatSearch.trim()) return chats;
+    const list = Array.isArray(chats) ? chats : [];
+    if (!chatSearch.trim()) return list;
     const q = chatSearch.toLowerCase();
-    return chats.filter((c) => c.title.toLowerCase().includes(q));
+    return list.filter((c) => c && c.title && c.title.toLowerCase().includes(q));
   }, [chats, chatSearch]);
 
-  // Filtered media
+  // Filtered media (Defensive)
   const filteredMedia = useMemo(() => {
-    let result = mediaList;
+    const list = Array.isArray(mediaList) ? mediaList : [];
+    let result = list;
     if (categoryFilter !== 'all') {
-      result = result.filter((m) => m.type === categoryFilter);
+      result = result.filter((m) => m && m.type === categoryFilter);
     }
     if (mediaSearch.trim()) {
       const q = mediaSearch.toLowerCase();
-      result = result.filter((m) => m.fileName.toLowerCase().includes(q));
+      result = result.filter(
+        (m) => m && (m.fileName || m.name || '').toLowerCase().includes(q)
+      );
     }
     return result;
   }, [mediaList, categoryFilter, mediaSearch]);
 
-  // Category counts in current chat
+  // Category counts in current chat (Defensive)
   const categoryCounts = useMemo(() => {
-    const counts = { all: mediaList.length, image: 0, video: 0, document: 0, audio: 0 };
-    mediaList.forEach((m) => {
-      if (counts[m.type] !== undefined) {
+    const counts = { all: 0, image: 0, video: 0, document: 0, audio: 0 };
+    const list = Array.isArray(mediaList) ? mediaList : [];
+    counts.all = list.length;
+    list.forEach((m) => {
+      if (m && counts[m.type] !== undefined) {
         counts[m.type]++;
       }
     });
@@ -159,7 +208,10 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeMediaIndex, filteredMedia.length]);
 
-  const activeMedia = activeMediaIndex !== null ? filteredMedia[activeMediaIndex] : null;
+  const activeMedia =
+    activeMediaIndex !== null && filteredMedia[activeMediaIndex]
+      ? filteredMedia[activeMediaIndex]
+      : null;
 
   // Trigger file download
   const handleDownload = (media: TelegramChatMedia) => {
@@ -167,14 +219,22 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
     const url = api.getChatMediaStreamUrl(media.chatId, media.id);
     const link = document.createElement('a');
     link.href = url;
-    link.download = media.fileName || `telegram_${media.id}`;
+    link.download = media.fileName || media.name || `telegram_${media.id}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%', background: 'var(--bg-main, #f8fafc)' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        width: '100%',
+        background: 'var(--bg-main, #f8fafc)',
+      }}
+    >
       {/* Top Header Bar */}
       <div
         style={{
@@ -196,6 +256,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                 setSelectedChat(null);
                 setActiveMediaIndex(null);
                 setMediaList([]);
+                setErrorMsg(null);
               }}
               style={{
                 display: 'flex',
@@ -287,7 +348,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                     : selectedChat.isGroup
                     ? 'Group'
                     : 'Direct Chat'}{' '}
-                  • {mediaList.length} media items
+                  • {loadingMedia ? 'Loading...' : `${mediaList.length} media items`}
                 </span>
               </div>
             </div>
@@ -422,7 +483,6 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
           >
             <RefreshCw
               size={16}
-              className={loadingChats || loadingMedia ? 'animate-spin' : ''}
               style={{
                 animation: loadingChats || loadingMedia ? 'spin 1s linear infinite' : 'none',
               }}
@@ -431,8 +491,8 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
         </div>
       </div>
 
-      {/* Category Tabs Subbar (When Chat is Selected) */}
-      {selectedChat && (
+      {/* Category Tabs Subbar (When Chat is Selected and not in full loading) */}
+      {selectedChat && !loadingMedia && (
         <div
           style={{
             padding: '0.65rem 1.75rem',
@@ -498,25 +558,49 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
       )}
 
       {/* Main Content Area */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 1.75rem' }}>
-        {/* Error message */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '1.5rem 1.75rem', position: 'relative' }}>
+        {/* Error banner */}
         {errorMsg && (
           <div
             style={{
               padding: '1rem 1.25rem',
               background: '#fef2f2',
               border: '1px solid #fecaca',
-              borderRadius: '12px',
+              borderRadius: '14px',
               color: '#dc2626',
               marginBottom: '1.5rem',
               display: 'flex',
               alignItems: 'center',
+              justifyContent: 'space-between',
               gap: '0.75rem',
-              fontSize: '0.9rem',
+              fontSize: '0.88rem',
             }}
           >
-            <Info size={18} />
-            <span>{errorMsg}</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <AlertCircle size={18} />
+              <span>{errorMsg}</span>
+            </div>
+            <button
+              onClick={() => {
+                if (selectedChat) {
+                  fetchChatMedia(selectedChat.id, categoryFilter);
+                } else {
+                  fetchArchivedChats();
+                }
+              }}
+              style={{
+                padding: '0.35rem 0.75rem',
+                borderRadius: '8px',
+                background: '#dc2626',
+                color: '#ffffff',
+                border: 'none',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Retry
+            </button>
           </div>
         )}
 
@@ -735,35 +819,114 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
         {/* 2. CHAT MEDIA EXPLORER (When a chat is selected) */}
         {selectedChat && (
           <div>
+            {/* PERCENTAGE PROGRESS LOADER (0% -> 100%) */}
             {loadingMedia ? (
-              /* Media Loading Skeleton */
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                  gap: '1rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '4.5rem 2rem',
+                  maxWidth: '460px',
+                  margin: '3rem auto',
+                  background: '#ffffff',
+                  borderRadius: '24px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 20px 45px -10px rgba(36, 129, 204, 0.12)',
+                  textAlign: 'center',
                 }}
               >
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
+                {/* Cyber Rotating Pulse Icon */}
+                <div
+                  style={{
+                    position: 'relative',
+                    width: '76px',
+                    height: '76px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '1.5rem',
+                  }}
+                >
                   <div
-                    key={n}
                     style={{
-                      height: '180px',
-                      borderRadius: '14px',
-                      background: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      overflow: 'hidden',
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: '50%',
+                      border: '3px solid #e0f2fe',
+                      borderTopColor: '#2481cc',
+                      animation: 'spin 1s linear infinite',
+                    }}
+                  />
+                  <div
+                    style={{
+                      width: '56px',
+                      height: '56px',
+                      borderRadius: '16px',
+                      background: 'linear-gradient(135deg, #2481cc 0%, #1765a3 100%)',
                       display: 'flex',
-                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#ffffff',
+                      boxShadow: '0 6px 16px rgba(36, 129, 204, 0.3)',
                     }}
                   >
-                    <div style={{ flex: 1, background: '#f1f5f9' }} />
-                    <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                      <div style={{ height: '10px', width: '80%', background: '#e2e8f0', borderRadius: '4px' }} />
-                      <div style={{ height: '8px', width: '40%', background: '#f1f5f9', borderRadius: '4px' }} />
-                    </div>
+                    <Archive size={26} />
                   </div>
-                ))}
+                </div>
+
+                {/* Percentage Display */}
+                <div
+                  style={{
+                    fontSize: '2.5rem',
+                    fontWeight: 900,
+                    letterSpacing: '-0.03em',
+                    background: 'linear-gradient(135deg, #0f172a 0%, #2481cc 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    marginBottom: '0.25rem',
+                  }}
+                >
+                  {mediaProgress}%
+                </div>
+
+                <h3 style={{ margin: '0 0 0.35rem', fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
+                  Loading {selectedChat.title} Media
+                </h3>
+
+                <p style={{ margin: '0 0 1.5rem', fontSize: '0.82rem', color: '#64748b' }}>
+                  {mediaProgress < 30
+                    ? 'Connecting to Telegram MTProto Archive...'
+                    : mediaProgress < 70
+                    ? 'Indexing high-res photos, videos & docs...'
+                    : mediaProgress < 100
+                    ? 'Assembling media streaming matrix...'
+                    : 'All media loaded successfully!'}
+                </p>
+
+                {/* Smooth Gradient Progress Bar */}
+                <div
+                  style={{
+                    width: '100%',
+                    height: '8px',
+                    background: '#f1f5f9',
+                    borderRadius: '9999px',
+                    overflow: 'hidden',
+                    position: 'relative',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${mediaProgress}%`,
+                      height: '100%',
+                      background: 'linear-gradient(90deg, #38bdf8 0%, #2481cc 50%, #1d4ed8 100%)',
+                      borderRadius: '9999px',
+                      transition: 'width 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                      boxShadow: '0 0 12px rgba(36, 129, 204, 0.5)',
+                    }}
+                  />
+                </div>
               </div>
             ) : filteredMedia.length === 0 ? (
               /* Empty Media State */
@@ -813,6 +976,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   const isImage = media.type === 'image';
                   const isVideo = media.type === 'video';
                   const isAudio = media.type === 'audio';
+                  const fileName = media.fileName || media.name || `media_${media.id}`;
                   const streamUrl = api.getChatMediaStreamUrl(media.chatId, media.id);
 
                   return (
@@ -860,7 +1024,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                         {isImage ? (
                           <img
                             src={streamUrl}
-                            alt={media.fileName}
+                            alt={fileName}
                             loading="lazy"
                             style={{
                               width: '100%',
@@ -943,7 +1107,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                           >
                             <FileText size={32} />
                             <span style={{ fontSize: '0.72rem', fontWeight: 600 }}>
-                              {media.fileName.split('.').pop()?.toUpperCase() || 'FILE'}
+                              {fileName.split('.').pop()?.toUpperCase() || 'FILE'}
                             </span>
                           </div>
                         )}
@@ -990,9 +1154,9 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                           }}
-                          title={media.fileName}
+                          title={fileName}
                         >
-                          {media.fileName}
+                          {fileName}
                         </div>
                         <div
                           style={{
@@ -1047,6 +1211,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   const isImage = media.type === 'image';
                   const isVideo = media.type === 'video';
                   const isAudio = media.type === 'audio';
+                  const fileName = media.fileName || media.name || `media_${media.id}`;
 
                   return (
                     <div
@@ -1090,7 +1255,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                           paddingRight: '1rem',
                         }}
                       >
-                        {media.fileName}
+                        {fileName}
                       </div>
 
                       <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
@@ -1167,7 +1332,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   maxWidth: '500px',
                 }}
               >
-                {activeMedia.fileName}
+                {activeMedia.fileName || activeMedia.name}
               </div>
               <span
                 style={{
@@ -1301,7 +1466,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
             {activeMedia.type === 'image' ? (
               <img
                 src={api.getChatMediaStreamUrl(activeMedia.chatId, activeMedia.id)}
-                alt={activeMedia.fileName}
+                alt={activeMedia.fileName || activeMedia.name}
                 style={{
                   maxWidth: '90%',
                   maxHeight: '85vh',
@@ -1352,7 +1517,9 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   <Music size={36} />
                 </div>
                 <div style={{ textAlign: 'center', color: '#ffffff' }}>
-                  <h4 style={{ margin: '0 0 0.35rem', fontSize: '1.1rem' }}>{activeMedia.fileName}</h4>
+                  <h4 style={{ margin: '0 0 0.35rem', fontSize: '1.1rem' }}>
+                    {activeMedia.fileName || activeMedia.name}
+                  </h4>
                   <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>
                     {formatBytes(activeMedia.size)}
                   </span>
@@ -1393,7 +1560,9 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   <FileText size={36} />
                 </div>
                 <div style={{ color: '#ffffff' }}>
-                  <h4 style={{ margin: '0 0 0.35rem', fontSize: '1.1rem' }}>{activeMedia.fileName}</h4>
+                  <h4 style={{ margin: '0 0 0.35rem', fontSize: '1.1rem' }}>
+                    {activeMedia.fileName || activeMedia.name}
+                  </h4>
                   <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.6)' }}>
                     {formatBytes(activeMedia.size)}
                   </span>
