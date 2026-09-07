@@ -1049,24 +1049,24 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                       style={{
                         background: isHoverTarget ? '#eff6ff' : '#fff',
                         border: isHoverTarget ? '2px solid var(--tg-blue)' : '1px solid var(--border-subtle)',
-                        borderRadius: 14,
-                        padding: '0.85rem 1rem',
+                        borderRadius: 16,
+                        padding: '1rem',
                         display: 'flex',
-                        alignItems: 'center',
+                        flexDirection: 'column',
                         justifyContent: 'space-between',
-                        gap: '0.65rem',
                         cursor: 'pointer',
                         transform: isHoverTarget ? 'scale(1.03)' : 'scale(1)',
                         boxShadow: isHoverTarget ? '0 8px 25px rgba(36,129,204,0.2)' : 'var(--shadow-sm)',
                         transition: 'all 0.18s ease',
+                        minHeight: 112,
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
                         <div
                           style={{
-                            width: 42,
-                            height: 42,
-                            borderRadius: 10,
+                            width: 44,
+                            height: 44,
+                            borderRadius: 12,
                             background: `${fld.color || '#3b82f6'}15`,
                             color: fld.color || '#3b82f6',
                             display: 'flex',
@@ -1075,12 +1075,12 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                             flexShrink: 0,
                           }}
                         >
-                          <FolderIcon size={22} fill={fld.color || '#3b82f6'} />
+                          <FolderIcon size={24} fill={fld.color || '#3b82f6'} />
                         </div>
                         <div style={{ overflow: 'hidden', minWidth: 0, flex: 1 }}>
                           <h4
                             style={{
-                              fontSize: '0.9rem',
+                              fontSize: '0.92rem',
                               fontWeight: 600,
                               whiteSpace: 'nowrap',
                               overflow: 'hidden',
@@ -1091,82 +1091,70 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                           >
                             {fld.name}
                           </h4>
-                          <p style={{ fontSize: '0.72rem', color: isHoverTarget ? 'var(--tg-blue)' : 'var(--text-light)', marginTop: 2 }}>
+                          <p style={{ fontSize: '0.74rem', color: isHoverTarget ? 'var(--tg-blue)' : 'var(--text-light)', marginTop: 2 }}>
                             {isHoverTarget ? 'Drop to move here' : 'Folder'}
                           </p>
                         </div>
                       </div>
 
-                      {/* Folder Actions: Rename & Delete */}
+                      {/* Folder Bottom Row: Metadata & Actions (Matches File Card Layout) */}
                       <div
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '0.2rem',
-                          flexShrink: 0,
+                          justifyContent: 'space-between',
+                          marginTop: '0.75rem',
+                          paddingTop: '0.45rem',
+                          borderTop: '1px solid #f8fafc',
+                          fontSize: '0.75rem',
+                          color: 'var(--text-light)',
                         }}
-                        onClick={(e) => e.stopPropagation()}
                       >
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            sfx.playClick();
-                            onRenameFolder(fld);
-                          }}
-                          title="Rename Folder"
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            padding: '0.35rem',
-                            borderRadius: 6,
-                            cursor: 'pointer',
-                            color: '#64748b',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.15s ease',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.color = 'var(--tg-blue)';
-                            e.currentTarget.style.background = '#eef6fd';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.color = '#64748b';
-                            e.currentTarget.style.background = 'transparent';
-                          }}
-                        >
-                          <Pencil size={14} />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            sfx.playClick();
-                            onDeleteFolder(fld);
-                          }}
-                          title="Delete Folder"
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            padding: '0.35rem',
-                            borderRadius: 6,
-                            cursor: 'pointer',
-                            color: '#64748b',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.15s ease',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.color = '#ef4444';
-                            e.currentTarget.style.background = '#fef2f2';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.color = '#64748b';
-                            e.currentTarget.style.background = 'transparent';
-                          }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <span>{fld._count?.files !== undefined ? `${fld._count.files} items` : 'Folder'}</span>
+                        <div style={{ display: 'flex', gap: '0.35rem' }} onClick={(e) => e.stopPropagation()}>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sfx.playClick();
+                              onRenameFolder(fld);
+                            }}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '0.2rem',
+                              color: '#94a3b8',
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
+                            title="Rename Folder"
+                            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--tg-blue)')}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sfx.playClick();
+                              onDeleteFolder(fld);
+                            }}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              padding: '0.2rem',
+                              color: '#94a3b8',
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
+                            title="Delete Folder"
+                            onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
