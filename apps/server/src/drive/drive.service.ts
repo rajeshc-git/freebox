@@ -148,10 +148,30 @@ export class DriveService {
     };
   }
 
+  private readonly bufferCache = new Map<string, { buffer: Buffer; file: any; expiresAt: number }>();
+
+  private setCachedBuffer(key: string, buffer: Buffer, file: any) {
+    if (this.bufferCache.size > 40) {
+      const firstKey = this.bufferCache.keys().next().value;
+      if (firstKey) this.bufferCache.delete(firstKey);
+    }
+    this.bufferCache.set(key, {
+      buffer,
+      file,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+  }
+
   /**
    * Stream/download a file from Telegram Saved Messages.
    */
   async streamFile(fileId: string, userPhone: string): Promise<{ buffer: Buffer; file: any }> {
+    const cacheKey = `file_${fileId}`;
+    const cached = this.bufferCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return { buffer: cached.buffer, file: cached.file };
+    }
+
     const file = await this.prisma.file.findUnique({ where: { id: fileId } });
     if (!file) throw new NotFoundException('File not found');
 
@@ -160,6 +180,7 @@ export class DriveService {
     }
 
     const buffer = await this.telegramClient.downloadMedia(userPhone, file.telegramMsgId);
+    this.setCachedBuffer(cacheKey, buffer, file);
 
     return { buffer, file };
   }
@@ -207,6 +228,12 @@ export class DriveService {
    * Stream a public file from Telegram without requiring user authentication.
    */
   async streamPublicFile(spoolHash: string): Promise<{ buffer: Buffer; file: any }> {
+    const cacheKey = `spool_${spoolHash}`;
+    const cached = this.bufferCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      return { buffer: cached.buffer, file: cached.file };
+    }
+
     const decoded = decodeURIComponent(spoolHash);
     let file = await this.prisma.file.findUnique({
       where: { spoolHash: decoded },
@@ -237,6 +264,8 @@ export class DriveService {
     }
 
     const buffer = await this.telegramClient.downloadMedia(phone, file.telegramMsgId);
+    this.setCachedBuffer(cacheKey, buffer, file);
+
     return { buffer, file };
   }
 
