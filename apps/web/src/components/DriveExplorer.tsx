@@ -1521,22 +1521,19 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                           position: 'absolute',
                           top: '0.65rem',
                           right: '0.65rem',
-                          background: isFolderSelected ? 'var(--tg-blue)' : '#f8fafc',
-                          border: isFolderSelected ? 'none' : '1px solid #e2e8f0',
-                          borderRadius: '50%',
-                          width: 26,
-                          height: 26,
+                          background: 'transparent',
+                          border: 'none',
+                          padding: 0,
+                          cursor: 'pointer',
+                          color: isFolderSelected ? 'var(--tg-blue)' : '#94a3b8',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          cursor: 'pointer',
-                          color: isFolderSelected ? '#fff' : '#94a3b8',
-                          boxShadow: '0 2px 5px rgba(0,0,0,0.06)',
                           zIndex: 2,
                           transition: 'all 0.15s ease',
                         }}
                       >
-                        {isFolderSelected ? <CheckSquare size={15} /> : <Square size={15} />}
+                        {isFolderSelected ? <CheckSquare size={18} color="var(--tg-blue)" /> : <Square size={18} color="#94a3b8" />}
                       </button>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', paddingRight: '1.5rem' }}>
@@ -1756,24 +1753,29 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                         {/* Checkbox button */}
                         <button
                           onClick={(e) => toggleSelect(file.id, e)}
+                          title={isSelected ? 'Deselect file' : 'Select file'}
                           style={{
                             position: 'absolute',
                             top: '0.6rem',
                             right: '0.6rem',
-                            background: isSelected ? 'var(--tg-blue)' : 'rgba(255,255,255,0.9)',
+                            background: 'transparent',
                             border: 'none',
-                            borderRadius: '50%',
-                            width: 28,
-                            height: 28,
+                            padding: 0,
+                            cursor: 'pointer',
+                            color: isSelected ? 'var(--tg-blue)' : '#ffffff',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            cursor: 'pointer',
-                            color: isSelected ? '#fff' : 'var(--text-muted)',
-                            boxShadow: '0 2px 5px rgba(0,0,0,0.15)',
+                            zIndex: 2,
+                            filter: isSelected ? 'none' : 'drop-shadow(0 1px 3px rgba(0,0,0,0.55))',
+                            transition: 'all 0.15s ease',
                           }}
                         >
-                          {isSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                          {isSelected ? (
+                            <CheckSquare size={18} color="var(--tg-blue)" />
+                          ) : (
+                            <Square size={18} color="#ffffff" />
+                          )}
                         </button>
                       </div>
 

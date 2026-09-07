@@ -943,21 +943,19 @@ const LivePhotoCard: React.FC<{
             }}
             title={isSelected ? 'Deselect Live Photo' : 'Select Live Photo'}
             style={{
-              background: isSelected ? 'var(--tg-blue)' : 'rgba(255, 255, 255, 0.92)',
-              backdropFilter: 'blur(6px)',
+              background: 'transparent',
               border: 'none',
-              borderRadius: 8,
-              padding: '0.35rem',
-              color: isSelected ? '#ffffff' : 'var(--text-muted)',
+              padding: 0,
               cursor: 'pointer',
+              color: isSelected ? 'var(--tg-blue)' : '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+              filter: isSelected ? 'none' : 'drop-shadow(0 1px 3px rgba(0,0,0,0.55))',
               transition: 'all 0.15s ease',
             }}
           >
-            {isSelected ? <CheckSquare size={14} color="#ffffff" /> : <Square size={14} />}
+            {isSelected ? <CheckSquare size={18} color="var(--tg-blue)" /> : <Square size={18} color="#ffffff" />}
           </button>
 
           <button
