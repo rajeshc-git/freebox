@@ -576,9 +576,70 @@ export const App: React.FC = () => {
     loadDriveData();
   };
 
-  const handleDeleteFile = async (id: string) => {
-    await api.deleteFile(id);
-    loadDriveData();
+  const handleDeleteFile = async (id: string, permanent: boolean = false) => {
+    try {
+      await api.deleteFile(id, permanent);
+      sfx.playComplete();
+      await loadDriveData();
+    } catch (err) {
+      console.error('Failed to delete file', err);
+      await loadDriveData();
+    }
+  };
+
+  const handleRestoreFile = async (id: string) => {
+    try {
+      await api.restoreFile(id);
+      sfx.playComplete();
+      await loadDriveData();
+    } catch (err) {
+      console.error('Failed to restore file', err);
+      await loadDriveData();
+    }
+  };
+
+  const handleRestoreBatch = async (ids: string[]) => {
+    try {
+      await api.restoreFiles(ids);
+      sfx.playComplete();
+      await loadDriveData();
+    } catch (err) {
+      console.error('Failed to restore batch files', err);
+      await loadDriveData();
+    }
+  };
+
+  const handleEmptyTrash = async () => {
+    try {
+      await api.emptyTrash();
+      sfx.playComplete();
+      await loadDriveData();
+    } catch (err) {
+      console.error('Failed to empty trash', err);
+      await loadDriveData();
+    }
+  };
+
+  const handleDeletePermanent = async (id: string) => {
+    try {
+      await api.deleteFile(id, true);
+      sfx.playComplete();
+      await loadDriveData();
+    } catch (err) {
+      console.error('Failed to delete file permanently', err);
+      await loadDriveData();
+    }
+  };
+
+  const handleDeleteBatchPermanent = async (ids: string[]) => {
+    try {
+      await api.deleteFiles(ids, true);
+      sfx.playComplete();
+      await loadDriveData();
+    } catch (err) {
+      console.error('Failed to delete batch permanently', err);
+      await loadDriveData();
+    }
   };
 
   const handleDeleteLivePhotoPair = async (pair: any) => {
@@ -641,6 +702,11 @@ export const App: React.FC = () => {
             onShareFile={setShareFile}
             onToggleStar={handleToggleStar}
             onDeleteFile={handleDeleteFile}
+            onRestoreFile={handleRestoreFile}
+            onRestoreBatch={handleRestoreBatch}
+            onEmptyTrash={handleEmptyTrash}
+            onDeletePermanent={handleDeletePermanent}
+            onDeleteBatchPermanent={handleDeleteBatchPermanent}
             onRenameFolder={setFolderToRename}
             onDeleteFolder={setFolderToDelete}
             onDeleteLivePhotoPair={handleDeleteLivePhotoPair}

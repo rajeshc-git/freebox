@@ -39,6 +39,7 @@ export interface DriveFile {
 export interface StorageMetrics {
   totalFiles: number;
   totalBytes: number;
+  trashCount?: number;
   quota: string;
   isUnlimited: boolean;
   provider: string;
@@ -49,6 +50,7 @@ export interface StorageMetrics {
     audio: number;
     archives: number;
     starred: number;
+    trash?: number;
   };
 }
 

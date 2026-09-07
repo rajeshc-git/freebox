@@ -158,6 +158,17 @@ export class TelegramClientService {
   }
 
   /**
+   * Delete multiple messages from Saved Messages.
+   */
+  async deleteMessages(phone: string, messageIds: number[]): Promise<void> {
+    if (!messageIds.length) return;
+    const client = await this.getClient(phone);
+
+    await client.deleteMessages('me', messageIds, { revoke: true });
+    this.logger.log(`Deleted ${messageIds.length} messages from Saved Messages for ${phone}`);
+  }
+
+  /**
    * Extract file info from a Telegram message's media.
    */
   extractFileInfo(message: Api.Message): {

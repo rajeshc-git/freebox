@@ -364,8 +364,72 @@ export class DriveService {
     });
   }
 
+  async emptyTrash(userPhone?: string) {
+    const trashedFiles = await this.prisma.file.findMany({
+      where: { isTrashed: true },
+    });
+
+    if (userPhone && trashedFiles.length > 0) {
+      const msgIds = trashedFiles
+        .map((f) => f.telegramMsgId)
+        .filter((id) => id > 0);
+
+      if (msgIds.length > 0) {
+        try {
+          await this.telegramClient.deleteMessages(userPhone, msgIds);
+          this.logger.log(`Emptied trash: deleted ${msgIds.length} Telegram messages for ${userPhone}`);
+        } catch (err) {
+          this.logger.warn(`Could not delete Telegram messages during empty trash: ${err.message}`);
+        }
+      }
+    }
+
+    return this.prisma.file.deleteMany({
+      where: { isTrashed: true },
+    });
+  }
+
+  async deleteFilesBatch(ids: string[], permanent = false, userPhone?: string) {
+    if (!ids.length) return { count: 0 };
+
+    if (permanent) {
+      const files = await this.prisma.file.findMany({
+        where: { id: { in: ids } },
+      });
+
+      if (userPhone && files.length > 0) {
+        const msgIds = files.map((f) => f.telegramMsgId).filter((id) => id > 0);
+        if (msgIds.length > 0) {
+          try {
+            await this.telegramClient.deleteMessages(userPhone, msgIds);
+          } catch (err) {
+            this.logger.warn(`Could not delete Telegram messages during batch delete: ${err.message}`);
+          }
+        }
+      }
+
+      return this.prisma.file.deleteMany({
+        where: { id: { in: ids } },
+      });
+    }
+
+    return this.prisma.file.updateMany({
+      where: { id: { in: ids } },
+      data: { isTrashed: true },
+    });
+  }
+
+  async restoreFilesBatch(ids: string[]) {
+    if (!ids.length) return { count: 0 };
+    return this.prisma.file.updateMany({
+      where: { id: { in: ids } },
+      data: { isTrashed: false },
+    });
+  }
+
   async getStorageMetrics() {
     const totalFiles = await this.prisma.file.count({ where: { isTrashed: false } });
+    const trashCount = await this.prisma.file.count({ where: { isTrashed: true } });
     const files = await this.prisma.file.findMany({
       where: { isTrashed: false },
       select: { size: true, type: true, starred: true },
@@ -376,6 +440,7 @@ export class DriveService {
     return {
       totalFiles,
       totalBytes,
+      trashCount,
       quota: 'UNLIMITED',
       isUnlimited: true,
       provider: 'Telegram MTProto Cloud',
@@ -386,6 +451,7 @@ export class DriveService {
         audio: files.filter(f => f.type === 'audio').length,
         archives: files.filter(f => f.type === 'archive').length,
         starred: files.filter(f => f.starred).length,
+        trash: trashCount,
       },
     };
   }

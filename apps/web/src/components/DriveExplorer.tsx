@@ -30,11 +30,12 @@ import {
   CornerDownRight,
   FolderInput,
   Pencil,
+  RotateCcw,
 } from 'lucide-react';
 import { User, Folder, DriveFile, StorageMetrics } from '../types';
 import { sfx } from '../services/sound';
 import { api } from '../services/api';
-import { MoveModal, DeleteFileModal, DeleteBatchFilesModal } from './Modals';
+import { MoveModal, DeleteFileModal, DeleteBatchFilesModal, EmptyTrashModal } from './Modals';
 import { LivePhotosView, LivePhotoPair } from './LivePhotosView';
 import { SmartImage } from './SmartImage';
 
@@ -63,6 +64,11 @@ interface DriveExplorerProps {
   onShareFile: (file: DriveFile) => void;
   onToggleStar: (fileId: string) => void;
   onDeleteFile: (fileId: string) => void;
+  onRestoreFile?: (fileId: string) => void;
+  onRestoreBatch?: (fileIds: string[]) => void;
+  onEmptyTrash?: () => void;
+  onDeletePermanent?: (fileId: string) => void;
+  onDeleteBatchPermanent?: (fileIds: string[]) => void;
   onRenameFolder: (folder: Folder) => void;
   onDeleteFolder: (folder: Folder) => void;
   onDeleteLivePhotoPair: (pair: LivePhotoPair) => void;
@@ -96,6 +102,11 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
   onShareFile,
   onToggleStar,
   onDeleteFile,
+  onRestoreFile,
+  onRestoreBatch,
+  onEmptyTrash,
+  onDeletePermanent,
+  onDeleteBatchPermanent,
   onRenameFolder,
   onDeleteFolder,
   onDeleteLivePhotoPair,
@@ -112,6 +123,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
   const [filesForMove, setFilesForMove] = useState<DriveFile[]>([]);
   const [fileToDelete, setFileToDelete] = useState<DriveFile | null>(null);
   const [isBatchDeleteOpen, setIsBatchDeleteOpen] = useState(false);
+  const [isEmptyTrashOpen, setIsEmptyTrashOpen] = useState(false);
 
   const formatSize = (bytes: number) => {
     if (bytes >= 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
@@ -372,9 +384,9 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
         <ul style={{ padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', listStyle: 'none' }}>
           {[
-            { id: 'all', label: 'My Files', icon: FolderIcon, count: displayedFiles.length },
-            { id: 'starred', label: 'Starred', icon: Star, count: displayedFiles.filter((f) => f.starred).length },
-            { id: 'trash', label: 'Trash', icon: Trash2, count: 0 },
+            { id: 'all', label: 'My Files', icon: FolderIcon, count: currentNav === 'all' ? displayedFiles.length : (metrics?.totalFiles ?? displayedFiles.length) },
+            { id: 'starred', label: 'Starred', icon: Star, count: currentNav === 'starred' ? displayedFiles.length : (metrics?.categories?.starred ?? 0) },
+            { id: 'trash', label: 'Trash', icon: Trash2, count: metrics?.trashCount ?? (currentNav === 'trash' ? files.length : 0) },
           ].map((item) => (
             <li
               key={item.id}
@@ -671,42 +683,73 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
               {soundEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
             </button>
 
-            {/* Upload File Button */}
-            <button className="btn-action-primary" onClick={() => { sfx.playClick(); onOpenUpload(); }} style={{ flexShrink: 0 }}>
-              <Upload size={15} />
-              <span>Upload File</span>
-            </button>
+            {currentNav === 'trash' ? (
+              <button
+                onClick={() => {
+                  sfx.playClick();
+                  setIsEmptyTrashOpen(true);
+                }}
+                disabled={files.length === 0}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.45rem',
+                  background: files.length > 0 ? '#ef4444' : '#f1f5f9',
+                  color: files.length > 0 ? '#ffffff' : '#94a3b8',
+                  border: 'none',
+                  padding: '0.55rem 1.15rem',
+                  borderRadius: 9999,
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: files.length > 0 ? 'pointer' : 'not-allowed',
+                  boxShadow: files.length > 0 ? '0 2px 10px rgba(239, 68, 68, 0.25)' : 'none',
+                  transition: 'all 0.15s ease',
+                  flexShrink: 0,
+                }}
+              >
+                <Trash2 size={15} />
+                <span>Empty Trash</span>
+              </button>
+            ) : (
+              <>
+                {/* Upload File Button */}
+                <button className="btn-action-primary" onClick={() => { sfx.playClick(); onOpenUpload(); }} style={{ flexShrink: 0 }}>
+                  <Upload size={15} />
+                  <span>Upload File</span>
+                </button>
 
-            {/* Bulk Upload Folder Button */}
-            <button
-              onClick={() => { sfx.playClick(); onOpenFolderUpload(); }}
-              className="hide-on-mobile"
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                background: '#eff6ff',
-                border: '1px solid #bfdbfe',
-                color: '#1d4ed8',
-                padding: '0.55rem 1rem',
-                borderRadius: 9999,
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                cursor: 'pointer',
-                transition: 'all 0.15s ease',
-                flexShrink: 0,
-              }}
-              title="Upload entire directory with subfolders"
-            >
-              <FolderUp size={15} />
-              <span>Upload Folder</span>
-            </button>
+                {/* Bulk Upload Folder Button */}
+                <button
+                  onClick={() => { sfx.playClick(); onOpenFolderUpload(); }}
+                  className="hide-on-mobile"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    background: '#eff6ff',
+                    border: '1px solid #bfdbfe',
+                    color: '#1d4ed8',
+                    padding: '0.55rem 1rem',
+                    borderRadius: 9999,
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    flexShrink: 0,
+                  }}
+                  title="Upload entire directory with subfolders"
+                >
+                  <FolderUp size={15} />
+                  <span>Upload Folder</span>
+                </button>
 
-            {/* New Folder Button */}
-            <button className="btn-action-secondary hide-on-mobile" onClick={() => { sfx.playClick(); onOpenNewFolder(); }} style={{ flexShrink: 0 }}>
-              <Plus size={15} />
-              <span>New Folder</span>
-            </button>
+                {/* New Folder Button */}
+                <button className="btn-action-secondary hide-on-mobile" onClick={() => { sfx.playClick(); onOpenNewFolder(); }} style={{ flexShrink: 0 }}>
+                  <Plus size={15} />
+                  <span>New Folder</span>
+                </button>
+              </>
+            )}
 
 
             {/* View Mode Toggle (Hidden on Mobile) */}
@@ -743,155 +786,48 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
         {/* Breadcrumbs & Filters Subbar (Hidden in dedicated Live Photos page) */}
         {currentCategory !== 'live_photo' && (
-          <div
-            className="explorer-subbar"
-            style={{
-              padding: '0.75rem 1.75rem',
-              borderBottom: '1px solid var(--border-subtle)',
-              background: '#fff',
-            }}
-          >
-            {/* Top Row on Mobile / Left on Desktop: Breadcrumb path with Select All on Mobile */}
-            <div className="explorer-subbar-top">
-              {/* Breadcrumb path with Back Arrow and Drag Target */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.88rem', flexWrap: 'wrap', minWidth: 0 }}>
-                {currentFolderId && (
-                  <button
-                    onClick={() => {
-                      sfx.playClick();
-                      onNavigateFolder(currentFolder?.parentId || null);
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setDragTargetFolderId('breadcrumb-back-arrow');
-                    }}
-                    onDragLeave={() => {
-                      if (dragTargetFolderId === 'breadcrumb-back-arrow') setDragTargetFolderId(null);
-                    }}
-                    onDrop={(e) => handleDropOnFolder(e, currentFolder?.parentId || null)}
-                    title="Back to parent folder (or drop files here to move out)"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 32,
-                      height: 32,
-                      borderRadius: 8,
-                      border: dragTargetFolderId === 'breadcrumb-back-arrow' ? '1.5px dashed var(--tg-blue)' : '1px solid var(--border-medium)',
-                      background: dragTargetFolderId === 'breadcrumb-back-arrow' ? '#eff6ff' : '#fff',
-                      color: dragTargetFolderId === 'breadcrumb-back-arrow' ? 'var(--tg-blue)' : 'var(--text-main)',
-                      cursor: 'pointer',
-                      marginRight: '0.25rem',
-                      boxShadow: 'var(--shadow-sm)',
-                      transition: 'all 0.15s ease',
-                    }}
-                  >
-                    <ArrowLeft size={16} />
-                  </button>
-                )}
-
-                <span
-                  onClick={() => {
-                    sfx.playClick();
-                    onNavigateFolder(null);
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    if (currentFolderId) setDragTargetFolderId('breadcrumb-root');
-                  }}
-                  onDragLeave={() => {
-                    if (dragTargetFolderId === 'breadcrumb-root') setDragTargetFolderId(null);
-                  }}
-                  onDrop={(e) => handleDropOnFolder(e, null)}
+          currentNav === 'trash' ? (
+            <div
+              className="explorer-subbar"
+              style={{
+                padding: '0.75rem 1.75rem',
+                borderBottom: '1px solid var(--border-subtle)',
+                background: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '0.75rem',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div
                   style={{
-                    color: dragTargetFolderId === 'breadcrumb-root' ? '#2563eb' : !currentFolderId ? 'var(--text-main)' : 'var(--text-muted)',
-                    cursor: 'pointer',
-                    fontWeight: !currentFolderId || dragTargetFolderId === 'breadcrumb-root' ? 700 : 500,
-                    background: dragTargetFolderId === 'breadcrumb-root' ? '#eff6ff' : 'transparent',
-                    padding: '0.2rem 0.55rem',
+                    width: 32,
+                    height: 32,
                     borderRadius: 8,
-                    border: dragTargetFolderId === 'breadcrumb-root' ? '1.5px dashed var(--tg-blue)' : '1.5px solid transparent',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  My Files {dragTargetFolderId === 'breadcrumb-root' && '← Drop to Move Here'}
-                </span>
-
-                {folderPath.map((item, index) => {
-                  const isLast = index === folderPath.length - 1;
-                  const isDragTarget = dragTargetFolderId === `breadcrumb-${item.id}`;
-                  return (
-                    <React.Fragment key={item.id}>
-                      <ChevronRight size={14} color="var(--text-light)" />
-                      <span
-                        onClick={() => {
-                          if (!isLast) {
-                            sfx.playClick();
-                            onNavigateFolder(item.id);
-                          }
-                        }}
-                        onDragOver={(e) => {
-                          if (!isLast) {
-                            e.preventDefault();
-                            setDragTargetFolderId(`breadcrumb-${item.id}`);
-                          }
-                        }}
-                        onDragLeave={() => {
-                          if (isDragTarget) setDragTargetFolderId(null);
-                        }}
-                        onDrop={(e) => {
-                          if (!isLast) handleDropOnFolder(e, item.id);
-                        }}
-                        style={{
-                          color: isDragTarget ? '#2563eb' : isLast ? 'var(--tg-blue)' : 'var(--text-muted)',
-                          cursor: isLast ? 'default' : 'pointer',
-                          fontWeight: isLast ? 700 : 500,
-                          background: isDragTarget ? '#eff6ff' : 'transparent',
-                          padding: '0.2rem 0.55rem',
-                          borderRadius: 8,
-                          border: isDragTarget ? '1.5px dashed var(--tg-blue)' : '1.5px solid transparent',
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        {item.name}
-                      </span>
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-
-              {/* Select All on Mobile (Top Right) */}
-              <div className="hide-on-desktop">
-                <button
-                  onClick={selectAll}
-                  style={{
-                    display: 'inline-flex',
+                    background: '#fef2f2',
+                    color: '#ef4444',
+                    display: 'flex',
                     alignItems: 'center',
-                    gap: '0.35rem',
-                    background: 'transparent',
-                    border: 'none',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    flexShrink: 0,
+                    justifyContent: 'center',
                   }}
                 >
-                  {selectedIds.length === files.length && files.length > 0 ? (
-                    <CheckSquare size={16} color="var(--tg-blue)" />
-                  ) : (
-                    <Square size={16} />
-                  )}
-                  <span>Select All</span>
-                </button>
+                  <Trash2 size={16} />
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '0.98rem', fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.2 }}>
+                    Trash
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.76rem', color: '#64748b' }}>
+                    {displayedFiles.length} {displayedFiles.length === 1 ? 'item' : 'items'} • Restore items or empty trash to permanently delete from Telegram
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {/* Desktop Right / Mobile Bottom Full-Width Strip: Select All (Desktop) + Category Scroll */}
-            <div className="explorer-subbar-right">
+              {/* Select All on Mobile / Desktop */}
               <button
                 onClick={selectAll}
-                className="hide-on-mobile"
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -912,41 +848,213 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                 )}
                 <span>Select All</span>
               </button>
+            </div>
+          ) : (
+            <div
+              className="explorer-subbar"
+              style={{
+                padding: '0.75rem 1.75rem',
+                borderBottom: '1px solid var(--border-subtle)',
+                background: '#fff',
+              }}
+            >
+              {/* Top Row on Mobile / Left on Desktop: Breadcrumb path with Select All on Mobile */}
+              <div className="explorer-subbar-top">
+                {/* Breadcrumb path with Back Arrow and Drag Target */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.88rem', flexWrap: 'wrap', minWidth: 0 }}>
+                  {currentFolderId && (
+                    <button
+                      onClick={() => {
+                        sfx.playClick();
+                        onNavigateFolder(currentFolder?.parentId || null);
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragTargetFolderId('breadcrumb-back-arrow');
+                      }}
+                      onDragLeave={() => {
+                        if (dragTargetFolderId === 'breadcrumb-back-arrow') setDragTargetFolderId(null);
+                      }}
+                      onDrop={(e) => handleDropOnFolder(e, currentFolder?.parentId || null)}
+                      title="Back to parent folder (or drop files here to move out)"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        border: dragTargetFolderId === 'breadcrumb-back-arrow' ? '1.5px dashed var(--tg-blue)' : '1px solid var(--border-medium)',
+                        background: dragTargetFolderId === 'breadcrumb-back-arrow' ? '#eff6ff' : '#fff',
+                        color: dragTargetFolderId === 'breadcrumb-back-arrow' ? 'var(--tg-blue)' : 'var(--text-main)',
+                        cursor: 'pointer',
+                        marginRight: '0.25rem',
+                        boxShadow: 'var(--shadow-sm)',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <ArrowLeft size={16} />
+                    </button>
+                  )}
 
-              <div className="explorer-category-scroll">
-                {[
-                  { id: 'all', label: 'All' },
-                  { id: 'image', label: 'Photos' },
-                  { id: 'video', label: 'Videos' },
-                  { id: 'document', label: 'Documents' },
-                  { id: 'audio', label: 'Audio' },
-                  { id: 'archive', label: 'Archives' },
-                  { id: 'live_photo', label: 'Live Photos ✨' },
-                ].map((cat) => (
-                  <button
-                    key={cat.id}
+                  <span
                     onClick={() => {
                       sfx.playClick();
-                      onSelectCategory(cat.id);
+                      onNavigateFolder(null);
                     }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (currentFolderId) setDragTargetFolderId('breadcrumb-root');
+                    }}
+                    onDragLeave={() => {
+                      if (dragTargetFolderId === 'breadcrumb-root') setDragTargetFolderId(null);
+                    }}
+                    onDrop={(e) => handleDropOnFolder(e, null)}
                     style={{
-                      fontSize: '0.75rem',
+                      color: dragTargetFolderId === 'breadcrumb-root' ? '#2563eb' : !currentFolderId ? 'var(--text-main)' : 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontWeight: !currentFolderId || dragTargetFolderId === 'breadcrumb-root' ? 700 : 500,
+                      background: dragTargetFolderId === 'breadcrumb-root' ? '#eff6ff' : 'transparent',
+                      padding: '0.2rem 0.55rem',
+                      borderRadius: 8,
+                      border: dragTargetFolderId === 'breadcrumb-root' ? '1.5px dashed var(--tg-blue)' : '1.5px solid transparent',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    My Files {dragTargetFolderId === 'breadcrumb-root' && '← Drop to Move Here'}
+                  </span>
+
+                  {folderPath.map((item, index) => {
+                    const isLast = index === folderPath.length - 1;
+                    const isDragTarget = dragTargetFolderId === `breadcrumb-${item.id}`;
+                    return (
+                      <React.Fragment key={item.id}>
+                        <ChevronRight size={14} color="var(--text-light)" />
+                        <span
+                          onClick={() => {
+                            if (!isLast) {
+                              sfx.playClick();
+                              onNavigateFolder(item.id);
+                            }
+                          }}
+                          onDragOver={(e) => {
+                            if (!isLast) {
+                              e.preventDefault();
+                              setDragTargetFolderId(`breadcrumb-${item.id}`);
+                            }
+                          }}
+                          onDragLeave={() => {
+                            if (isDragTarget) setDragTargetFolderId(null);
+                          }}
+                          onDrop={(e) => {
+                            if (!isLast) handleDropOnFolder(e, item.id);
+                          }}
+                          style={{
+                            color: isDragTarget ? '#2563eb' : isLast ? 'var(--tg-blue)' : 'var(--text-muted)',
+                            cursor: isLast ? 'default' : 'pointer',
+                            fontWeight: isLast ? 700 : 500,
+                            background: isDragTarget ? '#eff6ff' : 'transparent',
+                            padding: '0.2rem 0.55rem',
+                            borderRadius: 8,
+                            border: isDragTarget ? '1.5px dashed var(--tg-blue)' : '1.5px solid transparent',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {item.name}
+                        </span>
+                      </React.Fragment>
+                    );
+                  })}
+                </div>
+
+                {/* Select All on Mobile (Top Right) */}
+                <div className="hide-on-desktop">
+                  <button
+                    onClick={selectAll}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      background: 'transparent',
+                      border: 'none',
+                      fontSize: '0.8rem',
                       fontWeight: 600,
-                      padding: '0.32rem 0.75rem',
-                      borderRadius: 9999,
-                      background: currentCategory === cat.id ? '#eef6fd' : '#f1f5f9',
-                      color: currentCategory === cat.id ? 'var(--tg-blue)' : 'var(--text-muted)',
-                      border: currentCategory === cat.id ? '1px solid rgba(36,129,204,0.25)' : '1px solid transparent',
+                      color: 'var(--text-muted)',
                       cursor: 'pointer',
                       flexShrink: 0,
                     }}
                   >
-                    {cat.label}
+                    {selectedIds.length === files.length && files.length > 0 ? (
+                      <CheckSquare size={16} color="var(--tg-blue)" />
+                    ) : (
+                      <Square size={16} />
+                    )}
+                    <span>Select All</span>
                   </button>
-                ))}
+                </div>
+              </div>
+
+              {/* Desktop Right / Mobile Bottom Full-Width Strip: Select All (Desktop) + Category Scroll */}
+              <div className="explorer-subbar-right">
+                <button
+                  onClick={selectAll}
+                  className="hide-on-mobile"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    background: 'transparent',
+                    border: 'none',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                  }}
+                >
+                  {selectedIds.length === displayedFiles.length && displayedFiles.length > 0 ? (
+                    <CheckSquare size={16} color="var(--tg-blue)" />
+                  ) : (
+                    <Square size={16} />
+                  )}
+                  <span>Select All</span>
+                </button>
+
+                <div className="explorer-category-scroll">
+                  {[
+                    { id: 'all', label: 'All' },
+                    { id: 'image', label: 'Photos' },
+                    { id: 'video', label: 'Videos' },
+                    { id: 'document', label: 'Documents' },
+                    { id: 'audio', label: 'Audio' },
+                    { id: 'archive', label: 'Archives' },
+                    { id: 'live_photo', label: 'Live Photos ✨' },
+                  ].map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => {
+                        sfx.playClick();
+                        onSelectCategory(cat.id);
+                      }}
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        padding: '0.32rem 0.75rem',
+                        borderRadius: 9999,
+                        background: currentCategory === cat.id ? '#eef6fd' : '#f1f5f9',
+                        color: currentCategory === cat.id ? 'var(--tg-blue)' : 'var(--text-muted)',
+                        border: currentCategory === cat.id ? '1px solid rgba(36,129,204,0.25)' : '1px solid transparent',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                      }}
+                    >
+                      {cat.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )
         )}
 
         {/* If Live Photos is selected, render the dedicated Apple Live Photos Studio */}
@@ -1013,7 +1121,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           )}
 
           {/* Folders Section in Grid View */}
-          {currentFolders.length > 0 && currentCategory === 'all' && !searchQuery && viewMode === 'grid' && (
+          {currentFolders.length > 0 && currentCategory === 'all' && !searchQuery && currentNav !== 'trash' && viewMode === 'grid' && (
             <div style={{ marginBottom: '2rem' }}>
               <div
                 style={{
@@ -1179,7 +1287,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                 justifyContent: 'space-between',
               }}
             >
-              <span>Files ({displayedFiles.length})</span>
+              <span>{currentNav === 'trash' ? `Trash Items (${displayedFiles.length})` : `Files (${displayedFiles.length})`}</span>
             </div>
 
             {displayedFiles.length === 0 ? (
@@ -1193,33 +1301,61 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                   color: 'var(--text-muted)',
                 }}
               >
-                <Upload size={48} color="var(--text-light)" style={{ margin: '0 auto 1rem auto' }} />
-                <h4 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
-                  No files in this folder
-                </h4>
-                <p style={{ fontSize: '0.88rem', marginBottom: '1.5rem' }}>
-                  Upload files or folders, or drag & drop items directly here.
-                </p>
-                <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
-                  <button className="btn-action-primary" onClick={onOpenUpload}>
-                    <Upload size={14} /> Upload File
-                  </button>
-                  <button
-                    onClick={onOpenFolderUpload}
-                    style={{
-                      background: '#eff6ff',
-                      color: '#1d4ed8',
-                      border: '1px solid #bfdbfe',
-                      padding: '0.55rem 1rem',
-                      borderRadius: 9999,
-                      fontWeight: 600,
-                      fontSize: '0.85rem',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    <FolderUp size={14} /> Upload Folder
-                  </button>
-                </div>
+                {currentNav === 'trash' ? (
+                  <>
+                    <div
+                      style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: '50%',
+                        background: '#f8fafc',
+                        color: '#94a3b8',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 1.25rem',
+                      }}
+                    >
+                      <Trash2 size={32} />
+                    </div>
+                    <h4 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+                      Trash is Empty
+                    </h4>
+                    <p style={{ fontSize: '0.88rem' }}>
+                      Items moved to trash will appear here. You can restore them or empty trash anytime.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <Upload size={48} color="var(--text-light)" style={{ margin: '0 auto 1rem auto' }} />
+                    <h4 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+                      No files in this folder
+                    </h4>
+                    <p style={{ fontSize: '0.88rem', marginBottom: '1.5rem' }}>
+                      Upload files or folders, or drag & drop items directly here.
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '0.75rem' }}>
+                      <button className="btn-action-primary" onClick={onOpenUpload}>
+                        <Upload size={14} /> Upload File
+                      </button>
+                      <button
+                        onClick={onOpenFolderUpload}
+                        style={{
+                          background: '#eff6ff',
+                          color: '#1d4ed8',
+                          border: '1px solid #bfdbfe',
+                          padding: '0.55rem 1rem',
+                          borderRadius: 9999,
+                          fontWeight: 600,
+                          fontSize: '0.85rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <FolderUp size={14} /> Upload Folder
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             ) : viewMode === 'grid' ? (
               /* Grid View */
@@ -1361,49 +1497,102 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                         >
                           <span>{formatSize(file.size)}</span>
                           <div style={{ display: 'flex', gap: '0.35rem' }}>
-                            <button
-                              onClick={() => {
-                                sfx.playClick();
-                                onToggleStar(file.id);
-                              }}
-                              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
-                              title="Star"
-                            >
-                              <Star size={14} color={file.starred ? '#f59e0b' : '#94a3b8'} fill={file.starred ? '#f59e0b' : 'none'} />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                sfx.playClick();
-                                setFilesForMove([file]);
-                                setIsMoveModalOpen(true);
-                              }}
-                              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
-                              title="Move to Folder"
-                            >
-                              <FolderInput size={14} color="#94a3b8" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                sfx.playClick();
-                                onShareFile(file);
-                              }}
-                              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
-                              title="Share"
-                            >
-                              <Share2 size={14} color="#94a3b8" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                sfx.playClick();
-                                setFileToDelete(file);
-                              }}
-                              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
-                              title="Delete"
-                            >
-                              <Trash2 size={14} color="#ef4444" />
-                            </button>
+                            {currentNav === 'trash' ? (
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    sfx.playComplete();
+                                    onRestoreFile?.(file.id);
+                                  }}
+                                  style={{
+                                    background: '#eff6ff',
+                                    border: '1px solid #bfdbfe',
+                                    color: 'var(--tg-blue)',
+                                    borderRadius: 6,
+                                    padding: '0.2rem 0.5rem',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                  }}
+                                  title="Restore to My Files"
+                                >
+                                  <RotateCcw size={12} /> Restore
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    sfx.playClick();
+                                    setFileToDelete(file);
+                                  }}
+                                  style={{
+                                    background: '#fef2f2',
+                                    border: '1px solid #fee2e2',
+                                    color: '#ef4444',
+                                    borderRadius: 6,
+                                    padding: '0.2rem 0.5rem',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                  }}
+                                  title="Delete Forever from Telegram"
+                                >
+                                  <Trash2 size={12} /> Delete
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => {
+                                    sfx.playClick();
+                                    onToggleStar(file.id);
+                                  }}
+                                  style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                  title="Star"
+                                >
+                                  <Star size={14} color={file.starred ? '#f59e0b' : '#94a3b8'} fill={file.starred ? '#f59e0b' : 'none'} />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    sfx.playClick();
+                                    setFilesForMove([file]);
+                                    setIsMoveModalOpen(true);
+                                  }}
+                                  style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                  title="Move to Folder"
+                                >
+                                  <FolderInput size={14} color="#94a3b8" />
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    sfx.playClick();
+                                    onShareFile(file);
+                                  }}
+                                  style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                  title="Share"
+                                >
+                                  <Share2 size={14} color="#94a3b8" />
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    sfx.playClick();
+                                    setFileToDelete(file);
+                                  }}
+                                  style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                  title="Delete"
+                                >
+                                  <Trash2 size={14} color="#ef4444" />
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1443,7 +1632,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                   </thead>
                   <tbody>
                     {/* Folders in List View (Google Drive / iCloud style) */}
-                    {currentFolders.length > 0 && currentCategory === 'all' && !searchQuery && currentFolders.map((fld) => (
+                    {currentFolders.length > 0 && currentCategory === 'all' && !searchQuery && currentNav !== 'trash' && currentFolders.map((fld) => (
                       <tr
                         key={`folder-${fld.id}`}
                         onClick={() => {
@@ -1614,49 +1803,102 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                           </td>
                           <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
                             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                              <button
-                                onClick={() => {
-                                  sfx.playClick();
-                                  onPreviewFile(file);
-                                }}
-                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                                title="Preview"
-                              >
-                                <Eye size={16} />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  sfx.playClick();
-                                  setFilesForMove([file]);
-                                  setIsMoveModalOpen(true);
-                                }}
-                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                                title="Move to Folder"
-                              >
-                                <FolderInput size={16} />
-                              </button>
-                              <button
-                                onClick={() => {
-                                  sfx.playClick();
-                                  onShareFile(file);
-                                }}
-                                style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
-                                title="Share"
-                              >
-                                <Share2 size={16} />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  sfx.playClick();
-                                  setFileToDelete(file);
-                                }}
-                                style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
-                                title="Delete"
-                              >
-                                <Trash2 size={16} color="#ef4444" />
-                              </button>
+                              {currentNav === 'trash' ? (
+                                <>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      sfx.playComplete();
+                                      onRestoreFile?.(file.id);
+                                    }}
+                                    style={{
+                                      background: '#eff6ff',
+                                      border: '1px solid #bfdbfe',
+                                      color: 'var(--tg-blue)',
+                                      borderRadius: 6,
+                                      padding: '0.25rem 0.65rem',
+                                      fontSize: '0.78rem',
+                                      fontWeight: 700,
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                    }}
+                                    title="Restore file"
+                                  >
+                                    <RotateCcw size={14} /> Restore
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      sfx.playClick();
+                                      setFileToDelete(file);
+                                    }}
+                                    style={{
+                                      background: '#fef2f2',
+                                      border: '1px solid #fee2e2',
+                                      color: '#ef4444',
+                                      borderRadius: 6,
+                                      padding: '0.25rem 0.65rem',
+                                      fontSize: '0.78rem',
+                                      fontWeight: 700,
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: 4,
+                                    }}
+                                    title="Delete forever"
+                                  >
+                                    <Trash2 size={14} /> Delete
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      sfx.playClick();
+                                      onPreviewFile(file);
+                                    }}
+                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                                    title="Preview"
+                                  >
+                                    <Eye size={16} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      sfx.playClick();
+                                      setFilesForMove([file]);
+                                      setIsMoveModalOpen(true);
+                                    }}
+                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                                    title="Move to Folder"
+                                  >
+                                    <FolderInput size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      sfx.playClick();
+                                      onShareFile(file);
+                                    }}
+                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                                    title="Share"
+                                  >
+                                    <Share2 size={16} />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      sfx.playClick();
+                                      setFileToDelete(file);
+                                    }}
+                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+                                    title="Delete"
+                                  >
+                                    <Trash2 size={16} color="#ef4444" />
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1699,116 +1941,186 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           <span style={{ color: '#0f172a', fontWeight: 700, paddingRight: '0.25rem' }}>
             {selectedIds.length} {selectedIds.length === 1 ? 'file' : 'files'} selected
           </span>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            {/* Move Button */}
-            <button
-              onClick={() => {
-                sfx.playClick();
-                const selectedFiles = files.filter((f) => selectedIds.includes(f.id));
-                setFilesForMove(selectedFiles);
-                setIsMoveModalOpen(true);
-              }}
-              style={{
-                background: '#eff6ff',
-                border: '1px solid #bfdbfe',
-                color: 'var(--tg-blue)',
-                padding: '0.42rem 0.85rem',
-                borderRadius: 9999,
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <FolderInput size={14} /> Move
-            </button>
+          {currentNav === 'trash' ? (
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              {/* Restore Batch Button */}
+              <button
+                onClick={() => {
+                  sfx.playComplete();
+                  onRestoreBatch?.(selectedIds);
+                  setSelectedIds([]);
+                }}
+                style={{
+                  background: 'var(--tg-blue)',
+                  border: 'none',
+                  color: '#fff',
+                  padding: '0.42rem 0.95rem',
+                  borderRadius: 9999,
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  boxShadow: '0 2px 8px rgba(36,129,204,0.25)',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <RotateCcw size={14} /> Restore ({selectedIds.length})
+              </button>
 
-            {/* Download / Download Batch Button */}
-            <button
-              onClick={() => {
-                sfx.playComplete();
-                if (selectedIds.length === 1) {
-                  const file = files.find((f) => f.id === selectedIds[0]);
-                  if (file) {
+              {/* Delete Forever Button */}
+              <button
+                onClick={() => {
+                  sfx.playClick();
+                  setIsBatchDeleteOpen(true);
+                }}
+                style={{
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#ef4444',
+                  padding: '0.42rem 0.85rem',
+                  borderRadius: 9999,
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Trash2 size={14} /> Delete Forever ({selectedIds.length})
+              </button>
+
+              {/* Clear Selection */}
+              <button
+                onClick={() => setSelectedIds([])}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#64748b',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  padding: '0.2rem 0.4rem',
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              {/* Move Button */}
+              <button
+                onClick={() => {
+                  sfx.playClick();
+                  const selectedFiles = files.filter((f) => selectedIds.includes(f.id));
+                  setFilesForMove(selectedFiles);
+                  setIsMoveModalOpen(true);
+                }}
+                style={{
+                  background: '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  color: 'var(--tg-blue)',
+                  padding: '0.42rem 0.85rem',
+                  borderRadius: 9999,
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <FolderInput size={14} /> Move
+              </button>
+
+              {/* Download / Download Batch Button */}
+              <button
+                onClick={() => {
+                  sfx.playComplete();
+                  if (selectedIds.length === 1) {
+                    const file = files.find((f) => f.id === selectedIds[0]);
+                    if (file) {
+                      const a = document.createElement('a');
+                      a.href = api.getFileDownloadUrl(file.id);
+                      a.download = file.name;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                    }
+                  } else if (selectedIds.length > 1) {
                     const a = document.createElement('a');
-                    a.href = api.getFileDownloadUrl(file.id);
-                    a.download = file.name;
+                    a.href = api.getBatchDownloadUrl(selectedIds);
+                    a.download = `FreeBox_Batch_${new Date().toISOString().slice(0, 10)}.zip`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
                   }
-                } else if (selectedIds.length > 1) {
-                  const a = document.createElement('a');
-                  a.href = api.getBatchDownloadUrl(selectedIds);
-                  a.download = `FreeBox_Batch_${new Date().toISOString().slice(0, 10)}.zip`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                }
-                setSelectedIds([]);
-              }}
-              style={{
-                background: 'var(--tg-blue)',
-                border: 'none',
-                color: '#fff',
-                padding: '0.42rem 0.95rem',
-                borderRadius: 9999,
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                boxShadow: '0 2px 8px rgba(36,129,204,0.25)',
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Download size={14} /> {selectedIds.length > 1 ? `Download Batch (${selectedIds.length})` : 'Download'}
-            </button>
+                  setSelectedIds([]);
+                }}
+                style={{
+                  background: 'var(--tg-blue)',
+                  border: 'none',
+                  color: '#fff',
+                  padding: '0.42rem 0.95rem',
+                  borderRadius: 9999,
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  boxShadow: '0 2px 8px rgba(36,129,204,0.25)',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Download size={14} /> {selectedIds.length > 1 ? `Download Batch (${selectedIds.length})` : 'Download'}
+              </button>
 
-            {/* Delete Button */}
-            <button
-              onClick={() => {
-                sfx.playClick();
-                setIsBatchDeleteOpen(true);
-              }}
-              style={{
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                color: '#ef4444',
-                padding: '0.42rem 0.85rem',
-                borderRadius: 9999,
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                transition: 'all 0.15s ease',
-              }}
-            >
-              <Trash2 size={14} /> Delete
-            </button>
+              {/* Delete Button */}
+              <button
+                onClick={() => {
+                  sfx.playClick();
+                  setIsBatchDeleteOpen(true);
+                }}
+                style={{
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  color: '#ef4444',
+                  padding: '0.42rem 0.85rem',
+                  borderRadius: 9999,
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 5,
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Trash2 size={14} /> Delete
+              </button>
 
-            {/* Clear Selection */}
-            <button
-              onClick={() => setSelectedIds([])}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#64748b',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-                padding: '0.2rem 0.4rem',
-              }}
-            >
-              Clear
-            </button>
-          </div>
+              {/* Clear Selection */}
+              <button
+                onClick={() => setSelectedIds([])}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#64748b',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  padding: '0.2rem 0.4rem',
+                }}
+              >
+                Clear
+              </button>
+            </div>
+          )}
         </div>
       </div>
       )}
@@ -1833,9 +2145,18 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
         <DeleteFileModal
           isOpen={Boolean(fileToDelete)}
           file={fileToDelete}
+          isPermanent={currentNav === 'trash'}
           onClose={() => setFileToDelete(null)}
           onConfirm={(id) => {
-            onDeleteFile(id);
+            if (currentNav === 'trash') {
+              if (onDeletePermanent) {
+                onDeletePermanent(id);
+              } else {
+                onDeleteFile(id);
+              }
+            } else {
+              onDeleteFile(id);
+            }
             setFileToDelete(null);
           }}
         />
@@ -1844,11 +2165,32 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
         <DeleteBatchFilesModal
           isOpen={isBatchDeleteOpen}
           count={selectedIds.length}
+          isPermanent={currentNav === 'trash'}
           onClose={() => setIsBatchDeleteOpen(false)}
           onConfirm={() => {
-            selectedIds.forEach((id) => onDeleteFile(id));
+            if (currentNav === 'trash') {
+              if (onDeleteBatchPermanent) {
+                onDeleteBatchPermanent(selectedIds);
+              } else {
+                selectedIds.forEach((id) => onDeleteFile(id));
+              }
+            } else {
+              selectedIds.forEach((id) => onDeleteFile(id));
+            }
             setSelectedIds([]);
             setIsBatchDeleteOpen(false);
+          }}
+        />
+
+        {/* Empty Trash Modal */}
+        <EmptyTrashModal
+          isOpen={isEmptyTrashOpen}
+          count={files.length}
+          onClose={() => setIsEmptyTrashOpen(false)}
+          onConfirm={() => {
+            onEmptyTrash?.();
+            setSelectedIds([]);
+            setIsEmptyTrashOpen(false);
           }}
         />
       </main>

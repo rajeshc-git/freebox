@@ -310,6 +310,32 @@ export class DriveController {
     return this.driveService.toggleStar(id);
   }
 
+  @Delete('trash/empty')
+  async emptyTrash(@Headers('authorization') authHeader?: string) {
+    let userPhone: string | undefined;
+    try {
+      if (authHeader) userPhone = this.getUserPhone(authHeader);
+    } catch {}
+    return this.driveService.emptyTrash(userPhone);
+  }
+
+  @Post('trash/restore-batch')
+  async restoreBatch(@Body('ids') ids: string[]) {
+    return this.driveService.restoreFilesBatch(ids);
+  }
+
+  @Delete('trash/delete-batch')
+  async deleteBatchPermanent(
+    @Body('ids') ids: string[],
+    @Headers('authorization') authHeader?: string,
+  ) {
+    let userPhone: string | undefined;
+    try {
+      if (authHeader) userPhone = this.getUserPhone(authHeader);
+    } catch {}
+    return this.driveService.deleteFilesBatch(ids, true, userPhone);
+  }
+
   @Delete('files/:id')
   async deleteFile(
     @Param('id') id: string,

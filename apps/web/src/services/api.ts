@@ -235,9 +235,35 @@ export const api = {
     });
   },
 
+  async deleteFiles(fileIds: string[], permanent = false): Promise<void> {
+    if (!fileIds.length) return;
+    await fetch(`${API_BASE}/drive/trash/delete-batch`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ ids: fileIds }),
+    });
+  },
+
   async restoreFile(fileId: string): Promise<void> {
     await fetch(`${API_BASE}/drive/files/${fileId}/restore`, {
       method: 'POST',
+      headers: authHeaders(),
+    });
+  },
+
+  async restoreFiles(fileIds: string[]): Promise<void> {
+    if (!fileIds.length) return;
+    await fetch(`${API_BASE}/drive/trash/restore-batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ ids: fileIds }),
+    });
+  },
+
+  async emptyTrash(): Promise<void> {
+    await fetch(`${API_BASE}/drive/trash/empty`, {
+      method: 'DELETE',
+      headers: authHeaders(),
     });
   },
 
