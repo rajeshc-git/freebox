@@ -1,0 +1,247 @@
+import { User, Folder, DriveFile, StorageMetrics } from '../types';
+
+const API_BASE = '/api';
+
+/**
+ * Get the JWT auth token from localStorage.
+ */
+function getAuthToken(): string | null {
+  try {
+    const saved = localStorage.getItem('freebox_token') || localStorage.getItem('freedisk_token');
+    return saved || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Get auth headers with Bearer token.
+ */
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  if (!token) return {};
+  return { Authorization: `Bearer ${token}` };
+}
+
+export const api = {
+  // Real Telegram MTProto Auth
+  async sendCode(phone: string): Promise<{ success: boolean; phone: string }> {
+    const res = await fetch(`${API_BASE}/auth/send-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to send verification code from Telegram');
+    }
+    return data;
+  },
+
+  async verifyCode(
+    phone: string,
+    code: string,
+    password?: string
+  ): Promise<{ token: string; user: User; requiresPassword?: boolean }> {
+    const res = await fetch(`${API_BASE}/auth/verify-code`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, code, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Verification failed. Please check the code in Telegram.');
+    }
+    return data;
+  },
+
+  // Folders
+  async getFolders(parentId?: string | null): Promise<Folder[]> {
+    const url = parentId !== undefined ? `${API_BASE}/drive/folders?parentId=${parentId || 'root'}` : `${API_BASE}/drive/folders`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  async createFolder(name: string, parentId?: string | null, color = '#3b82f6'): Promise<Folder> {
+    const res = await fetch(`${API_BASE}/drive/folders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, parentId: parentId || null, color }),
+    });
+    return res.json();
+  },
+
+  // Files
+  async getFiles(params: {
+    folderId?: string | null;
+    category?: string;
+    search?: string;
+    nav?: string;
+  }): Promise<DriveFile[]> {
+    const query = new URLSearchParams();
+    if (params.folderId !== undefined && params.folderId !== null) {
+      query.set('folderId', params.folderId);
+    } else {
+      query.set('folderId', 'root');
+    }
+    if (params.category && params.category !== 'all') query.set('category', params.category);
+    if (params.search) query.set('search', params.search);
+    if (params.nav) query.set('nav', params.nav);
+
+    const res = await fetch(`${API_BASE}/drive/files?${query.toString()}`);
+    if (!res.ok) return [];
+    return res.json();
+  },
+
+  /**
+   * Upload a file to Telegram Saved Messages via the server.
+   * Sends actual file bytes as multipart/form-data.
+   * Returns a promise and calls onProgress with percentage (0-100).
+   */
+  uploadFile(
+    file: File,
+    folderId?: string | null,
+    onProgress?: (progress: number) => void,
+  ): { promise: Promise<DriveFile>; abort: () => void } {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append('file', file);
+    if (folderId) {
+      formData.append('folderId', folderId);
+    }
+
+    let rejectFn: (reason: any) => void;
+
+    const promise = new Promise<DriveFile>((resolve, reject) => {
+      rejectFn = reject;
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          onProgress(pct);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch {
+            reject(new Error('Invalid server response'));
+          }
+        } else {
+          try {
+            const err = JSON.parse(xhr.responseText);
+            reject(new Error(err.message || `Upload failed (${xhr.status})`));
+          } catch {
+            reject(new Error(`Upload failed (${xhr.status})`));
+          }
+        }
+      };
+
+      xhr.onerror = () => reject(new Error('Network error during upload'));
+      xhr.onabort = () => reject(new Error('Upload cancelled'));
+
+      xhr.open('POST', `${API_BASE}/drive/files/upload`);
+
+      // Set auth header
+      const token = getAuthToken();
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      }
+
+      xhr.send(formData);
+    });
+
+    return {
+      promise,
+      abort: () => xhr.abort(),
+    };
+  },
+
+  /**
+   * Get the URL to stream/preview a file from Telegram.
+   */
+  getFileStreamUrl(fileId: string): string {
+    const token = getAuthToken();
+    return `${API_BASE}/drive/files/${fileId}/stream${token ? `?token=${token}` : ''}`;
+  },
+
+  /**
+   * Get the URL to download a file from Telegram.
+   */
+  getFileDownloadUrl(fileId: string): string {
+    const token = getAuthToken();
+    return `${API_BASE}/drive/files/${fileId}/download${token ? `?token=${token}` : ''}`;
+  },
+
+  /**
+   * Get the URL to download multiple files bundled in a zip archive.
+   */
+  getBatchDownloadUrl(fileIds: string[]): string {
+    const token = getAuthToken();
+    const idsQuery = encodeURIComponent(fileIds.join(','));
+    return `${API_BASE}/drive/files/batch/download?ids=${idsQuery}${token ? `&token=${token}` : ''}`;
+  },
+
+
+  async toggleStar(fileId: string): Promise<DriveFile> {
+    const res = await fetch(`${API_BASE}/drive/files/${fileId}/star`, {
+      method: 'PATCH',
+    });
+    return res.json();
+  },
+
+  async moveFile(fileId: string, folderId: string | null): Promise<DriveFile> {
+    const res = await fetch(`${API_BASE}/drive/files/${fileId}/move`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folderId }),
+    });
+    return res.json();
+  },
+
+  async moveFiles(ids: string[], folderId: string | null): Promise<void> {
+    await fetch(`${API_BASE}/drive/files/batch/move`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, folderId }),
+    });
+  },
+
+  async deleteFile(fileId: string, permanent = false): Promise<void> {
+    await fetch(`${API_BASE}/drive/files/${fileId}?permanent=${permanent}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+  },
+
+  async restoreFile(fileId: string): Promise<void> {
+    await fetch(`${API_BASE}/drive/files/${fileId}/restore`, {
+      method: 'POST',
+    });
+  },
+
+  async getStorageMetrics(): Promise<StorageMetrics> {
+    const res = await fetch(`${API_BASE}/drive/storage-metrics`);
+    if (!res.ok) {
+      return {
+        totalFiles: 0,
+        totalBytes: 0,
+        quota: 'UNLIMITED',
+        isUnlimited: true,
+        provider: 'Telegram MTProto Cloud',
+        categories: { images: 0, videos: 0, documents: 0, audio: 0, archives: 0, starred: 0 },
+      };
+    }
+    return res.json();
+  },
+
+  // Telegram Saved Messages
+  async getTelegramSavedMessages() {
+    const res = await fetch(`${API_BASE}/telegram/saved-messages`);
+    if (!res.ok) return { totalMessages: 0, messages: [] };
+    return res.json();
+  },
+};

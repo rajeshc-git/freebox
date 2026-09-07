@@ -1,0 +1,45 @@
+
+services:
+  # Redis Cache & Session Store
+  redis:
+    image: redis:7-alpine
+    container_name: freebox-redis
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  # NestJS Backend API Service (internal port 5005)
+  server:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: freebox-server
+    environment:
+      PORT: 5005
+      DATABASE_URL: "file:./dev.db"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: "dock_jwt_secret_super_secure_key_2026"
+      # TELEGRAM_API_ID: "6"
+      # TELEGRAM_API_HASH: "eb06d4abfb49dc3eeb1aeb98ae0f581e"
+    depends_on:
+      - redis
+    volumes:
+      - server-data:/app/apps/server/prisma
+    restart: unless-stopped
+
+  # Frontend + Nginx reverse proxy (single public port 5004)
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: freebox-web
+    ports:
+      - "5004:5004"
+    depends_on:
+      - server
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  server-data:

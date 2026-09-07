@@ -1,0 +1,18 @@
+{
+  "name": "dock-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel --filter \"*\" dev",
+    "dev:server": "pnpm --filter server dev",
+    "dev:web": "pnpm --filter web dev",
+    "build": "pnpm --filter \"*\" build",
+    "prisma:generate": "pnpm --filter server prisma:generate",
+    "prisma:push": "pnpm --filter server prisma:push",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}

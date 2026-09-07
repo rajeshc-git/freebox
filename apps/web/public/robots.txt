@@ -1,0 +1,11 @@
+# robots.txt for FreeBox Cloud
+User-agent: *
+Allow: /
+Allow: /#features
+Allow: /#comparison
+Allow: /#faq
+Allow: /#about
+Disallow: /api/
+
+# Sitemap Location
+Sitemap: https://freebox.cloud/sitemap.xml

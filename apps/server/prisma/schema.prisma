@@ -1,0 +1,70 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id          String    @id @default(cuid())
+  phone       String    @unique
+  name        String    @default("Telegram User")
+  avatar      String    @default("TU")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  folders     Folder[]
+  files       File[]
+}
+
+model Folder {
+  id        String    @id @default(cuid())
+  name      String
+  color     String    @default("#3b82f6")
+  parentId  String?
+  parent    Folder?   @relation("FolderToSubfolders", fields: [parentId], references: [id], onDelete: Cascade)
+  children  Folder[]  @relation("FolderToSubfolders")
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files     File[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model File {
+  id               String    @id @default(cuid())
+  name             String
+  spoolHash        String    @unique
+  size             Int
+  mimeType         String
+  type             String    // 'image' | 'video' | 'document' | 'audio' | 'archive'
+  folderId         String?
+  folder           Folder?   @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  userId           String?
+  user             User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  telegramMsgId    Int       @default(0)
+  telegramFileId   String?   // Telegram file_id for fast downloads
+  telegramAccessHash String? // Telegram access_hash for file operations
+  telegramStatus   String    @default("read")
+  starred          Boolean   @default(false)
+  isTrashed        Boolean   @default(false)
+  storageProvider  String    @default("telegram") // 'telegram' | 'minio' | 'local'
+  previewUrl       String?
+  thumbnailUrl     String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model UploadSession {
+  id              String    @id @default(cuid())
+  fileName        String
+  size            Int
+  mimeType        String
+  spoolHash       String
+  totalChunks     Int
+  uploadedChunks  Int       @default(0)
+  status          String    @default("pending") // 'pending' | 'uploading' | 'completed' | 'failed'
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
