@@ -1305,7 +1305,13 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                             color: '#64748b',
                           }}
                         >
-                          <span>{formatBytes(media.size)}</span>
+                          <span>
+                            {media.size > 0
+                              ? formatBytes(media.size)
+                              : media.duration
+                              ? formatDuration(media.duration)
+                              : ''}
+                          </span>
                           <span>{formatDate(media.date)}</span>
                         </div>
                       </div>
@@ -1420,7 +1426,11 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                       </div>
 
                       <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
-                        {formatBytes(media.size)}
+                        {media.size > 0
+                          ? formatBytes(media.size)
+                          : media.duration
+                          ? formatDuration(media.duration)
+                          : '—'}
                       </div>
 
                       <div style={{ fontSize: '0.8rem', color: '#64748b' }}>

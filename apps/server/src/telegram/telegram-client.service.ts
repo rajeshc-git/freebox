@@ -347,7 +347,7 @@ export class TelegramClientService {
 
       if (doc) {
         mimeType = doc.mimeType || 'application/octet-stream';
-        size = Number(doc.size || 0);
+        size = this.parseTelegramMediaSize(doc);
 
         const fileNameAttr = doc.attributes?.find(
           (a: any) => a.className === 'DocumentAttributeFilename' || a.fileName,
@@ -386,7 +386,7 @@ export class TelegramClientService {
         type = 'image';
         mimeType = 'image/jpeg';
         name = `photo_${msg.id}.jpg`;
-        size = 0;
+        size = this.parseTelegramMediaSize(photo);
       } else {
         continue;
       }
@@ -535,6 +535,68 @@ export class TelegramClientService {
       files,
       voice,
     };
+  }
+
+  /**
+   * Helper to accurately parse file size from Telegram Photo, Document, Video, and Voice items.
+   */
+  private parseTelegramMediaSize(mediaItem: any): number {
+    if (!mediaItem) return 0;
+
+    // Document size (int64 / number / Long object)
+    if (mediaItem.size !== undefined && mediaItem.size !== null) {
+      if (typeof mediaItem.size === 'number' && mediaItem.size > 0) return mediaItem.size;
+      if (typeof mediaItem.size.toNumber === 'function') {
+        const num = mediaItem.size.toNumber();
+        if (num > 0) return num;
+      }
+      const n = Number(mediaItem.size);
+      if (!isNaN(n) && n > 0) return n;
+    }
+
+    // Photo sizes array (PhotoSize, PhotoSizeProgressive, PhotoCachedSize)
+    if (Array.isArray(mediaItem.sizes)) {
+      let maxSize = 0;
+      let maxPixels = 0;
+
+      for (const s of mediaItem.sizes) {
+        if (!s) continue;
+        let sSize = 0;
+
+        if (typeof s.size === 'number' && s.size > 0) {
+          sSize = s.size;
+        } else if (s.size && typeof s.size.toNumber === 'function') {
+          sSize = s.size.toNumber();
+        } else if (Array.isArray(s.sizes) && s.sizes.length > 0) {
+          const nums = s.sizes
+            .map((x: any) => (typeof x === 'number' ? x : x?.toNumber ? x.toNumber() : Number(x)))
+            .filter((x: any) => !isNaN(x) && x > 0);
+          if (nums.length > 0) sSize = Math.max(...nums);
+        } else if (s.bytes && (s.bytes.length || s.bytes.byteLength)) {
+          sSize = s.bytes.length || s.bytes.byteLength;
+        }
+
+        if (sSize > maxSize) {
+          maxSize = sSize;
+        }
+
+        if (s.w && s.h) {
+          const pixels = Number(s.w) * Number(s.h);
+          if (pixels > maxPixels) {
+            maxPixels = pixels;
+          }
+        }
+      }
+
+      if (maxSize > 0) return maxSize;
+
+      // Estimate JPEG size from resolution if Telegram omitted explicit size tag (~0.22 bytes/pixel)
+      if (maxPixels > 0) {
+        return Math.round(maxPixels * 0.22);
+      }
+    }
+
+    return 0;
   }
 }
 
