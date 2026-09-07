@@ -28,6 +28,8 @@ import {
   FolderInput,
   FolderTree,
   LogOut,
+  Pencil,
+  AlertTriangle,
 } from 'lucide-react';
 import { DriveFile, UploadQueueItem, Folder } from '../types';
 import { sfx } from '../services/sound';
@@ -882,6 +884,273 @@ export const NewFolderModal: React.FC<NewFolderModalProps> = ({ isOpen, onClose,
             }}
           >
             Create Folder
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface RenameFolderModalProps {
+  isOpen: boolean;
+  folder: Folder | null;
+  onClose: () => void;
+  onRename: (id: string, newName: string) => void;
+}
+
+export const RenameFolderModal: React.FC<RenameFolderModalProps> = ({ isOpen, folder, onClose, onRename }) => {
+  const [name, setName] = useState('');
+
+  useEffect(() => {
+    if (folder) {
+      setName(folder.name);
+    }
+  }, [folder]);
+
+  if (!isOpen || !folder) return null;
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (name.trim() && name.trim() !== folder.name) {
+      sfx.playClick();
+      onRename(folder.id, name.trim());
+    } else {
+      onClose();
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#fff',
+          borderRadius: 24,
+          padding: '2rem',
+          width: '100%',
+          maxWidth: 400,
+          position: 'relative',
+          boxShadow: 'var(--shadow-xl)',
+          animation: 'popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '1.25rem',
+            right: '1.25rem',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '1.1rem',
+            color: '#64748b',
+          }}
+        >
+          ✕
+        </button>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1.25rem' }}>
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 12,
+              background: '#eff6ff',
+              color: 'var(--tg-blue)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Pencil size={20} />
+          </div>
+          <div>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#0f172a' }}>Rename Folder</h3>
+            <p style={{ fontSize: '0.78rem', color: '#64748b' }}>Enter a new name for this folder</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            placeholder="Folder name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+            onFocus={(e) => e.target.select()}
+            style={{
+              width: '100%',
+              border: '1.5px solid var(--border-medium)',
+              borderRadius: 12,
+              padding: '0.75rem 1rem',
+              fontSize: '0.95rem',
+              marginBottom: '1.5rem',
+              outline: 'none',
+              background: '#f8fafc',
+            }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: '#f1f5f9',
+                border: 'none',
+                padding: '0.65rem 1.15rem',
+                borderRadius: 12,
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                cursor: 'pointer',
+                color: '#475569',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!name.trim()}
+              style={{
+                background: 'var(--tg-blue)',
+                color: '#fff',
+                border: 'none',
+                padding: '0.65rem 1.25rem',
+                borderRadius: 12,
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                cursor: name.trim() ? 'pointer' : 'not-allowed',
+                opacity: name.trim() ? 1 : 0.6,
+                boxShadow: '0 2px 8px rgba(36, 129, 204, 0.25)',
+              }}
+            >
+              Rename
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+interface DeleteFolderModalProps {
+  isOpen: boolean;
+  folder: Folder | null;
+  onClose: () => void;
+  onConfirm: (id: string) => void;
+}
+
+export const DeleteFolderModal: React.FC<DeleteFolderModalProps> = ({ isOpen, folder, onClose, onConfirm }) => {
+  if (!isOpen || !folder) return null;
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: '#ffffff',
+          borderRadius: 24,
+          padding: '2rem',
+          width: '100%',
+          maxWidth: 420,
+          position: 'relative',
+          boxShadow: '0 20px 48px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+          animation: 'popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          textAlign: 'center',
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '1.25rem',
+            right: '1.25rem',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '1.1rem',
+            color: '#64748b',
+          }}
+        >
+          ✕
+        </button>
+
+        <div
+          style={{
+            width: 56,
+            height: 56,
+            borderRadius: 18,
+            background: '#fef2f2',
+            border: '1px solid #fee2e2',
+            color: '#ef4444',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 1.25rem',
+          }}
+        >
+          <Trash2 size={26} />
+        </div>
+
+        <h3
+          style={{
+            fontSize: '1.25rem',
+            fontWeight: 800,
+            color: '#0f172a',
+            marginBottom: '0.5rem',
+          }}
+        >
+          Delete Folder "{folder.name}"?
+        </h3>
+
+        <p
+          style={{
+            fontSize: '0.88rem',
+            color: '#64748b',
+            lineHeight: 1.5,
+            marginBottom: '1.75rem',
+          }}
+        >
+          Are you sure you want to delete this folder? All files inside will be moved to Trash, and subfolders will be deleted.
+        </p>
+
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1,
+              padding: '0.75rem 1rem',
+              borderRadius: 12,
+              background: '#f1f5f9',
+              border: 'none',
+              color: '#475569',
+              fontWeight: 600,
+              fontSize: '0.92rem',
+              cursor: 'pointer',
+              transition: 'background 0.15s ease',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              sfx.playClick();
+              onConfirm(folder.id);
+            }}
+            style={{
+              flex: 1,
+              padding: '0.75rem 1rem',
+              borderRadius: 12,
+              background: '#ef4444',
+              border: 'none',
+              color: '#ffffff',
+              fontWeight: 700,
+              fontSize: '0.92rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)',
+              transition: 'background 0.15s ease',
+            }}
+          >
+            Delete Folder
           </button>
         </div>
       </div>

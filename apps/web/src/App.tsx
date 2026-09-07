@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { LandingPage } from './components/LandingPage';
 import { OtpModal } from './components/OtpModal';
 import { DriveExplorer } from './components/DriveExplorer';
-import { PreviewModal, ShareModal, NewFolderModal, TorrentQueueManager, LogoutConfirmModal } from './components/Modals';
+import { PreviewModal, ShareModal, NewFolderModal, RenameFolderModal, DeleteFolderModal, TorrentQueueManager, LogoutConfirmModal } from './components/Modals';
 import { PublicShareView } from './components/PublicShareView';
 import { CommandPalette } from './components/CommandPalette';
 import { api } from './services/api';
@@ -87,6 +87,8 @@ export const App: React.FC = () => {
   const [previewFile, setPreviewFile] = useState<DriveFile | null>(null);
   const [shareFile, setShareFile] = useState<DriveFile | null>(null);
   const [isNewFolderOpen, setIsNewFolderOpen] = useState(false);
+  const [folderToRename, setFolderToRename] = useState<Folder | null>(null);
+  const [folderToDelete, setFolderToDelete] = useState<Folder | null>(null);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
 
   // References
@@ -543,6 +545,31 @@ export const App: React.FC = () => {
     loadDriveData();
   };
 
+  const handleRenameFolder = async (id: string, name: string) => {
+    try {
+      await api.renameFolder(id, name);
+      setFolderToRename(null);
+      sfx.playComplete();
+      await loadDriveData();
+    } catch (err) {
+      console.error('Failed to rename folder', err);
+    }
+  };
+
+  const handleDeleteFolder = async (id: string) => {
+    try {
+      await api.deleteFolder(id);
+      setFolderToDelete(null);
+      sfx.playComplete();
+      if (currentFolderId === id) {
+        setCurrentFolderId(null);
+      }
+      await loadDriveData();
+    } catch (err) {
+      console.error('Failed to delete folder', err);
+    }
+  };
+
   const handleToggleStar = async (id: string) => {
     await api.toggleStar(id);
     loadDriveData();
@@ -599,6 +626,8 @@ export const App: React.FC = () => {
             onShareFile={setShareFile}
             onToggleStar={handleToggleStar}
             onDeleteFile={handleDeleteFile}
+            onRenameFolder={setFolderToRename}
+            onDeleteFolder={setFolderToDelete}
             onMoveFiles={handleMoveFiles}
             onDropFolderItems={handleDropFolderItems}
             onLogout={() => setIsLogoutOpen(true)}
@@ -660,6 +689,22 @@ export const App: React.FC = () => {
         isOpen={isNewFolderOpen}
         onClose={() => setIsNewFolderOpen(false)}
         onCreate={handleCreateFolder}
+      />
+
+      {/* Rename Folder Modal */}
+      <RenameFolderModal
+        isOpen={Boolean(folderToRename)}
+        folder={folderToRename}
+        onClose={() => setFolderToRename(null)}
+        onRename={handleRenameFolder}
+      />
+
+      {/* Delete Folder Modal */}
+      <DeleteFolderModal
+        isOpen={Boolean(folderToDelete)}
+        folder={folderToDelete}
+        onClose={() => setFolderToDelete(null)}
+        onConfirm={handleDeleteFolder}
       />
 
       {/* Torrent-Style Realtime Transfer Queue Dock */}

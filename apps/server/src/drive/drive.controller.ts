@@ -126,6 +126,22 @@ export class DriveController {
     return this.driveService.createFolder(body.name.trim(), body.parentId, body.color);
   }
 
+  @Patch('folders/:id')
+  async renameFolder(
+    @Param('id') id: string,
+    @Body('name') name: string,
+  ) {
+    if (!name || !name.trim()) {
+      throw new BadRequestException('Folder name is required');
+    }
+    return this.driveService.renameFolder(id, name.trim());
+  }
+
+  @Delete('folders/:id')
+  async deleteFolder(@Param('id') id: string) {
+    return this.driveService.deleteFolder(id);
+  }
+
   @Get('files')
   async getFiles(
     @Query('folderId') folderId?: string,

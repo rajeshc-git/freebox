@@ -41,6 +41,37 @@ export class DriveService {
     });
   }
 
+  async renameFolder(id: string, name: string) {
+    const folder = await this.prisma.folder.findUnique({ where: { id } });
+    if (!folder) throw new NotFoundException('Folder not found');
+
+    return this.prisma.folder.update({
+      where: { id },
+      data: { name: name.trim() },
+    });
+  }
+
+  async deleteFolder(id: string) {
+    const folder = await this.prisma.folder.findUnique({ where: { id } });
+    if (!folder) throw new NotFoundException('Folder not found');
+
+    // Soft delete files in this folder by moving them to trash
+    await this.prisma.file.updateMany({
+      where: { folderId: id },
+      data: { isTrashed: true },
+    });
+
+    // Delete subfolders recursively
+    const children = await this.prisma.folder.findMany({ where: { parentId: id } });
+    for (const child of children) {
+      await this.deleteFolder(child.id);
+    }
+
+    return this.prisma.folder.delete({
+      where: { id },
+    });
+  }
+
   async getFiles(query: {
     folderId?: string;
     category?: string;

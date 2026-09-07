@@ -72,6 +72,24 @@ export const api = {
     return res.json();
   },
 
+  async renameFolder(id: string, name: string): Promise<Folder> {
+    const res = await fetch(`${API_BASE}/drive/folders/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) throw new Error('Failed to rename folder');
+    return res.json();
+  },
+
+  async deleteFolder(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/drive/folders/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders(),
+    });
+    if (!res.ok) throw new Error('Failed to delete folder');
+  },
+
   // Files
   async getFiles(params: {
     folderId?: string | null;
