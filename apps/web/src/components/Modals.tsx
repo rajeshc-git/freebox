@@ -388,7 +388,14 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({ file, onClose, onSha
                 padding: '1.5rem',
               }}
             >
-              <video ref={videoRef} controls autoPlay style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}>
+              <video
+                ref={videoRef}
+                controls
+                autoPlay
+                playsInline
+                preload="auto"
+                style={{ maxWidth: '100%', maxHeight: '100%', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
+              >
                 <source src={api.getFileStreamUrl(file.id)} type={file.mimeType || 'video/mp4'} />
               </video>
               {/* Streaming Stats HUD */}
