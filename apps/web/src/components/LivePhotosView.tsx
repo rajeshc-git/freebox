@@ -942,15 +942,14 @@ const LivePhotoCard: React.FC<{
               border: 'none',
               padding: 0,
               cursor: 'pointer',
-              color: isSelected ? 'var(--tg-blue)' : '#ffffff',
+              color: isSelected ? 'var(--tg-blue)' : '#94a3b8',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              filter: isSelected ? 'none' : 'drop-shadow(0 1px 3px rgba(0,0,0,0.55))',
               transition: 'all 0.15s ease',
             }}
           >
-            {isSelected ? <CheckSquare size={18} color="var(--tg-blue)" /> : <Square size={18} color="#ffffff" />}
+            {isSelected ? <CheckSquare size={18} color="var(--tg-blue)" /> : <Square size={18} color="#94a3b8" />}
           </button>
 
           <button

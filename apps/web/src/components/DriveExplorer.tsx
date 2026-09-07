@@ -1756,25 +1756,24 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                           title={isSelected ? 'Deselect file' : 'Select file'}
                           style={{
                             position: 'absolute',
-                            top: '0.6rem',
-                            right: '0.6rem',
+                            top: '0.65rem',
+                            right: '0.65rem',
                             background: 'transparent',
                             border: 'none',
                             padding: 0,
                             cursor: 'pointer',
-                            color: isSelected ? 'var(--tg-blue)' : '#ffffff',
+                            color: isSelected ? 'var(--tg-blue)' : '#94a3b8',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             zIndex: 2,
-                            filter: isSelected ? 'none' : 'drop-shadow(0 1px 3px rgba(0,0,0,0.55))',
                             transition: 'all 0.15s ease',
                           }}
                         >
                           {isSelected ? (
                             <CheckSquare size={18} color="var(--tg-blue)" />
                           ) : (
-                            <Square size={18} color="#ffffff" />
+                            <Square size={18} color="#94a3b8" />
                           )}
                         </button>
                       </div>
