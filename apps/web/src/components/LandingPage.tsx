@@ -607,7 +607,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div className="about-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
             <a
               href="https://github.com/rajeshc-git"
               target="_blank"

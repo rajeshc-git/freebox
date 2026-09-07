@@ -725,18 +725,27 @@ body {
   }
   #about {
     padding: 0 1rem !important;
-    margin-bottom: 3rem !important;
+    margin-bottom: 2rem !important;
   }
   #about > div {
-    padding: 1.25rem 1rem !important;
+    padding: 1.1rem 1.15rem !important;
     border-radius: 18px !important;
     flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 1rem !important;
+    align-items: stretch !important;
+    gap: 0.85rem !important;
+  }
+  #about .about-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
   }
   #about a, #about button {
-    width: 100% !important;
+    flex: 1 1 0 !important;
+    padding: 0.55rem 0.65rem !important;
+    font-size: 0.78rem !important;
     justify-content: center !important;
+    white-space: nowrap !important;
   }
   footer {
     padding: 2rem 1rem !important;
