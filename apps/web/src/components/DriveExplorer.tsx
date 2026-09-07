@@ -117,6 +117,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
   const [isDragOver, setIsDragOver] = useState(false);
   const [dragTargetFolderId, setDragTargetFolderId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedFolderIds, setSelectedFolderIds] = useState<string[]>([]);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [draggingFileId, setDraggingFileId] = useState<string | null>(null);
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
@@ -124,6 +125,30 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
   const [fileToDelete, setFileToDelete] = useState<DriveFile | null>(null);
   const [isBatchDeleteOpen, setIsBatchDeleteOpen] = useState(false);
   const [isEmptyTrashOpen, setIsEmptyTrashOpen] = useState(false);
+
+  const longPressTimerRef = useRef<any>(null);
+  const isLongPressRef = useRef(false);
+
+  const handleFolderTouchStart = (fldId: string) => {
+    isLongPressRef.current = false;
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      sfx.playClick();
+      setSelectedFolderIds((prev) => (prev.includes(fldId) ? prev.filter((id) => id !== fldId) : [...prev, fldId]));
+    }, 450);
+  };
+
+  const handleFolderTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+  };
+
+  const toggleSelectFolder = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    sfx.playClick();
+    setSelectedFolderIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+  };
 
   const formatSize = (bytes: number) => {
     if (bytes >= 1024 * 1024 * 1024) return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
@@ -200,12 +225,20 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
         }
       }
 
-      // Delete / Backspace -> delete selected files
+      // Delete / Backspace -> delete selected files or folders
       if (e.key === 'Delete' || e.key === 'Backspace') {
         if (selectedIds.length > 0) {
           e.preventDefault();
           sfx.playClick();
           setIsBatchDeleteOpen(true);
+        } else if (selectedFolderIds.length > 0) {
+          e.preventDefault();
+          sfx.playClick();
+          selectedFolderIds.forEach((id) => {
+            const f = folders.find((fl) => fl.id === id);
+            if (f) onDeleteFolder(f);
+          });
+          setSelectedFolderIds([]);
         }
       }
 
@@ -219,12 +252,13 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
       // Escape -> Clear selection
       if (e.key === 'Escape') {
         setSelectedIds([]);
+        setSelectedFolderIds([]);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedIds, files, onPreviewFile, onDeleteFile]);
+  }, [selectedIds, selectedFolderIds, files, folders, onPreviewFile, onDeleteFile, onDeleteFolder]);
 
   const toggleSelect = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1142,13 +1176,22 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
                 {currentFolders.map((fld) => {
                   const isHoverTarget = dragTargetFolderId === fld.id;
+                  const isFolderSelected = selectedFolderIds.includes(fld.id);
                   return (
                     <div
                       key={fld.id}
                       onClick={() => {
+                        if (isLongPressRef.current) return;
+                        if (selectedFolderIds.length > 0) {
+                          toggleSelectFolder(fld.id);
+                          return;
+                        }
                         sfx.playClick();
                         onNavigateFolder(fld.id);
                       }}
+                      onTouchStart={() => handleFolderTouchStart(fld.id)}
+                      onTouchEnd={handleFolderTouchEnd}
+                      onTouchMove={handleFolderTouchEnd}
                       onDragOver={(e) => {
                         e.preventDefault();
                         setDragTargetFolderId(fld.id);
@@ -1156,21 +1199,48 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                       onDragLeave={() => setDragTargetFolderId(null)}
                       onDrop={(e) => handleDropOnFolder(e, fld.id)}
                       style={{
-                        background: isHoverTarget ? '#eff6ff' : '#fff',
-                        border: isHoverTarget ? '2px solid var(--tg-blue)' : '1px solid var(--border-subtle)',
+                        position: 'relative',
+                        background: isFolderSelected ? '#eff6ff' : isHoverTarget ? '#f0fdf4' : '#fff',
+                        border: isFolderSelected ? '2px solid var(--tg-blue)' : isHoverTarget ? '2px solid #10b981' : '1px solid var(--border-subtle)',
                         borderRadius: 16,
                         padding: '1rem',
                         display: 'flex',
                         flexDirection: 'column',
                         justifyContent: 'space-between',
                         cursor: 'pointer',
-                        transform: isHoverTarget ? 'scale(1.03)' : 'scale(1)',
-                        boxShadow: isHoverTarget ? '0 8px 25px rgba(36,129,204,0.2)' : 'var(--shadow-sm)',
+                        transform: isHoverTarget ? 'scale(1.03)' : isFolderSelected ? 'scale(0.99)' : 'scale(1)',
+                        boxShadow: isFolderSelected ? '0 8px 25px rgba(36,129,204,0.18)' : 'var(--shadow-sm)',
                         transition: 'all 0.18s ease',
                         minHeight: 112,
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                      {/* Folder Checkbox Button in Top-Right Corner */}
+                      <button
+                        onClick={(e) => toggleSelectFolder(fld.id, e)}
+                        title={isFolderSelected ? 'Deselect folder' : 'Select folder'}
+                        style={{
+                          position: 'absolute',
+                          top: '0.65rem',
+                          right: '0.65rem',
+                          background: isFolderSelected ? 'var(--tg-blue)' : '#f8fafc',
+                          border: isFolderSelected ? 'none' : '1px solid #e2e8f0',
+                          borderRadius: '50%',
+                          width: 26,
+                          height: 26,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          color: isFolderSelected ? '#fff' : '#94a3b8',
+                          boxShadow: '0 2px 5px rgba(0,0,0,0.06)',
+                          zIndex: 2,
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        {isFolderSelected ? <CheckSquare size={15} /> : <Square size={15} />}
+                      </button>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem', paddingRight: '1.5rem' }}>
                         <div
                           style={{
                             width: 44,
@@ -1206,7 +1276,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                         </div>
                       </div>
 
-                      {/* Folder Bottom Row: Metadata & Actions (Matches File Card Layout) */}
+                      {/* Folder Bottom Row: Clean Metadata */}
                       <div
                         style={{
                           display: 'flex',
@@ -1220,50 +1290,6 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                         }}
                       >
                         <span>{fld._count?.files !== undefined ? `${fld._count.files} items` : 'Folder'}</span>
-                        <div style={{ display: 'flex', gap: '0.35rem' }} onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              sfx.playClick();
-                              onRenameFolder(fld);
-                            }}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '0.2rem',
-                              color: '#94a3b8',
-                              display: 'flex',
-                              alignItems: 'center',
-                            }}
-                            title="Rename Folder"
-                            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--tg-blue)')}
-                            onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              sfx.playClick();
-                              onDeleteFolder(fld);
-                            }}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '0.2rem',
-                              color: '#94a3b8',
-                              display: 'flex',
-                              alignItems: 'center',
-                            }}
-                            title="Delete Folder"
-                            onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
-                            onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
                       </div>
                     </div>
                   );
@@ -1632,39 +1658,54 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                   </thead>
                   <tbody>
                     {/* Folders in List View (Google Drive / iCloud style) */}
-                    {currentFolders.length > 0 && currentCategory === 'all' && !searchQuery && currentNav !== 'trash' && currentFolders.map((fld) => (
-                      <tr
-                        key={`folder-${fld.id}`}
-                        onClick={() => {
-                          sfx.playClick();
-                          onNavigateFolder(fld.id);
-                        }}
-                        style={{
-                          borderBottom: '1px solid var(--border-subtle)',
-                          fontSize: '0.88rem',
-                          cursor: 'pointer',
-                          background: '#fafcff',
-                          transition: 'background 0.15s ease',
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = '#eff6ff')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = '#fafcff')}
-                      >
-                        <td style={{ padding: '0.85rem 1.25rem' }}>
-                          <FolderIcon size={18} color={fld.color || '#3b82f6'} fill={fld.color || '#3b82f6'} />
-                        </td>
-                        <td style={{ padding: '0.85rem 1.25rem', fontWeight: 600 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span>{fld.name}</span>
-                          </div>
-                        </td>
-                        <td className="hide-on-mobile" style={{ padding: '0.85rem 1.25rem', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>
-                          folder_{fld.id.slice(0, 8)}
-                        </td>
-                        <td style={{ padding: '0.85rem 1.25rem', color: 'var(--text-light)', fontSize: '0.82rem' }}>
-                          —
-                        </td>
-                        <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
-                          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.45rem' }}>
+                    {currentFolders.length > 0 && currentCategory === 'all' && !searchQuery && currentNav !== 'trash' && currentFolders.map((fld) => {
+                      const isFolderSelected = selectedFolderIds.includes(fld.id);
+                      return (
+                        <tr
+                          key={`folder-${fld.id}`}
+                          onClick={() => {
+                            if (isLongPressRef.current) return;
+                            if (selectedFolderIds.length > 0) {
+                              toggleSelectFolder(fld.id);
+                              return;
+                            }
+                            sfx.playClick();
+                            onNavigateFolder(fld.id);
+                          }}
+                          onTouchStart={() => handleFolderTouchStart(fld.id)}
+                          onTouchEnd={handleFolderTouchEnd}
+                          onTouchMove={handleFolderTouchEnd}
+                          style={{
+                            borderBottom: '1px solid var(--border-subtle)',
+                            fontSize: '0.88rem',
+                            cursor: 'pointer',
+                            background: isFolderSelected ? '#f0f7ff' : '#fafcff',
+                            transition: 'background 0.15s ease',
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = isFolderSelected ? '#e0f2fe' : '#eff6ff')}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = isFolderSelected ? '#f0f7ff' : '#fafcff')}
+                        >
+                          <td style={{ padding: '0.85rem 1.25rem', width: 40 }}>
+                            <button
+                              onClick={(e) => toggleSelectFolder(fld.id, e)}
+                              style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+                            >
+                              {isFolderSelected ? <CheckSquare size={16} color="var(--tg-blue)" /> : <Square size={16} />}
+                            </button>
+                          </td>
+                          <td style={{ padding: '0.85rem 1.25rem', fontWeight: 600 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                              <FolderIcon size={18} color={fld.color || '#3b82f6'} fill={fld.color || '#3b82f6'} />
+                              <span>{fld.name}</span>
+                            </div>
+                          </td>
+                          <td className="hide-on-mobile" style={{ padding: '0.85rem 1.25rem', color: 'var(--text-light)', fontFamily: 'var(--font-mono)', fontSize: '0.78rem' }}>
+                            folder_{fld.id.slice(0, 8)}
+                          </td>
+                          <td style={{ padding: '0.85rem 1.25rem', color: 'var(--text-light)', fontSize: '0.82rem' }}>
+                            {fld._count?.files !== undefined ? `${fld._count.files} items` : '—'}
+                          </td>
+                          <td style={{ padding: '0.85rem 1.25rem', textAlign: 'right' }}>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1683,70 +1724,10 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                             >
                               Open
                             </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                sfx.playClick();
-                                onRenameFolder(fld);
-                              }}
-                              title="Rename Folder"
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                padding: '0.35rem',
-                                borderRadius: 6,
-                                cursor: 'pointer',
-                                color: '#64748b',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'all 0.15s ease',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.color = 'var(--tg-blue)';
-                                e.currentTarget.style.background = '#eef6fd';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.color = '#64748b';
-                                e.currentTarget.style.background = 'transparent';
-                              }}
-                            >
-                              <Pencil size={15} />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                sfx.playClick();
-                                onDeleteFolder(fld);
-                              }}
-                              title="Delete Folder"
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                padding: '0.35rem',
-                                borderRadius: 6,
-                                cursor: 'pointer',
-                                color: '#64748b',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'all 0.15s ease',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.color = '#ef4444';
-                                e.currentTarget.style.background = '#fef2f2';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.color = '#64748b';
-                                e.currentTarget.style.background = 'transparent';
-                              }}
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                        </tr>
+                      );
+                    })}
 
                     {displayedFiles.map((file) => {
                       const isSelected = selectedIds.includes(file.id);
@@ -1911,217 +1892,320 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           </div>
 
         {/* Floating Batch Actions Bar (100% Light Theme with Smooth Spring Enter/Exit Animation) */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '1.5rem',
-            left: '50%',
-            transform: selectedIds.length > 0 ? 'translateX(-50%) translateY(0) scale(1)' : 'translateX(-50%) translateY(28px) scale(0.95)',
-            opacity: selectedIds.length > 0 ? 1 : 0,
-            pointerEvents: selectedIds.length > 0 ? 'auto' : 'none',
-            visibility: selectedIds.length > 0 ? 'visible' : 'hidden',
-            transition: 'all 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
-            background: '#ffffff',
-            color: '#0f172a',
-            border: '1px solid #e2e8f0',
-            padding: '0.65rem 1.25rem',
-            borderRadius: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '1rem',
-            boxShadow: '0 12px 36px -4px rgba(15, 23, 42, 0.15), 0 0 0 1px rgba(0,0,0,0.03)',
-            zIndex: 100,
-            fontSize: '0.86rem',
-            fontWeight: 600,
-            maxWidth: '92vw',
-            flexWrap: 'wrap',
-            justifyContent: 'center',
-          }}
-        >
-          <span style={{ color: '#0f172a', fontWeight: 700, paddingRight: '0.25rem' }}>
-            {selectedIds.length} {selectedIds.length === 1 ? 'file' : 'files'} selected
-          </span>
-          {currentNav === 'trash' ? (
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              {/* Restore Batch Button */}
-              <button
-                onClick={() => {
-                  sfx.playComplete();
-                  onRestoreBatch?.(selectedIds);
-                  setSelectedIds([]);
-                }}
-                style={{
-                  background: 'var(--tg-blue)',
-                  border: 'none',
-                  color: '#fff',
-                  padding: '0.42rem 0.95rem',
-                  borderRadius: 9999,
-                  cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  boxShadow: '0 2px 8px rgba(36,129,204,0.25)',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <RotateCcw size={14} /> Restore ({selectedIds.length})
-              </button>
+        {(() => {
+          const hasSelection = selectedIds.length > 0 || selectedFolderIds.length > 0;
+          const isOnlyFoldersSelected = selectedFolderIds.length > 0 && selectedIds.length === 0;
+          const singleSelectedFolder = isOnlyFoldersSelected && selectedFolderIds.length === 1
+            ? folders.find((f) => f.id === selectedFolderIds[0])
+            : null;
 
-              {/* Delete Forever Button */}
-              <button
-                onClick={() => {
-                  sfx.playClick();
-                  setIsBatchDeleteOpen(true);
-                }}
-                style={{
-                  background: '#fef2f2',
-                  border: '1px solid #fecaca',
-                  color: '#ef4444',
-                  padding: '0.42rem 0.85rem',
-                  borderRadius: 9999,
-                  cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <Trash2 size={14} /> Delete Forever ({selectedIds.length})
-              </button>
+          return (
+            <div
+              className="floating-batch-bar"
+              style={{
+                position: 'fixed',
+                bottom: '1.5rem',
+                left: '50%',
+                transform: hasSelection ? 'translateX(-50%) translateY(0) scale(1)' : 'translateX(-50%) translateY(28px) scale(0.95)',
+                opacity: hasSelection ? 1 : 0,
+                pointerEvents: hasSelection ? 'auto' : 'none',
+                visibility: hasSelection ? 'visible' : 'hidden',
+                transition: 'all 0.28s cubic-bezier(0.16, 1, 0.3, 1)',
+                background: '#ffffff',
+                color: '#0f172a',
+                border: '1px solid #e2e8f0',
+                padding: '0.65rem 1.25rem',
+                borderRadius: 9999,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem',
+                boxShadow: '0 12px 36px -4px rgba(15, 23, 42, 0.15), 0 0 0 1px rgba(0,0,0,0.03)',
+                zIndex: 100,
+                fontSize: '0.86rem',
+                fontWeight: 600,
+                maxWidth: '92vw',
+                flexWrap: 'wrap',
+                justifyContent: 'center',
+              }}
+            >
+              <span style={{ color: '#0f172a', fontWeight: 700, paddingRight: '0.25rem' }}>
+                {isOnlyFoldersSelected
+                  ? singleSelectedFolder
+                    ? `Folder "${singleSelectedFolder.name}" selected`
+                    : `${selectedFolderIds.length} folders selected`
+                  : `${selectedIds.length} ${selectedIds.length === 1 ? 'file' : 'files'}${selectedFolderIds.length > 0 ? ` & ${selectedFolderIds.length} ${selectedFolderIds.length === 1 ? 'folder' : 'folders'}` : ''} selected`}
+              </span>
 
-              {/* Clear Selection */}
-              <button
-                onClick={() => setSelectedIds([])}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#64748b',
-                  cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  padding: '0.2rem 0.4rem',
-                }}
-              >
-                Clear
-              </button>
+              {isOnlyFoldersSelected ? (
+                <div className="batch-actions-group" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  {singleSelectedFolder && (
+                    <button
+                      onClick={() => {
+                        sfx.playClick();
+                        onRenameFolder(singleSelectedFolder);
+                        setSelectedFolderIds([]);
+                      }}
+                      style={{
+                        background: '#eff6ff',
+                        border: '1px solid #bfdbfe',
+                        color: 'var(--tg-blue)',
+                        padding: '0.42rem 0.85rem',
+                        borderRadius: 9999,
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <Pencil size={14} /> Rename
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      sfx.playClick();
+                      selectedFolderIds.forEach((id) => {
+                        const f = folders.find((fl) => fl.id === id);
+                        if (f) onDeleteFolder(f);
+                      });
+                      setSelectedFolderIds([]);
+                    }}
+                    style={{
+                      background: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      color: '#ef4444',
+                      padding: '0.42rem 0.85rem',
+                      borderRadius: 9999,
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <Trash2 size={14} /> {selectedFolderIds.length > 1 ? `Delete Folders (${selectedFolderIds.length})` : 'Delete Folder'}
+                  </button>
+
+                  <button
+                    onClick={() => setSelectedFolderIds([])}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#64748b',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      padding: '0.2rem 0.4rem',
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              ) : currentNav === 'trash' ? (
+                <div className="batch-actions-group" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  {/* Restore Batch Button */}
+                  <button
+                    onClick={() => {
+                      sfx.playComplete();
+                      onRestoreBatch?.(selectedIds);
+                      setSelectedIds([]);
+                      setSelectedFolderIds([]);
+                    }}
+                    style={{
+                      background: 'var(--tg-blue)',
+                      border: 'none',
+                      color: '#fff',
+                      padding: '0.42rem 0.95rem',
+                      borderRadius: 9999,
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      boxShadow: '0 2px 8px rgba(36,129,204,0.25)',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <RotateCcw size={14} /> Restore ({selectedIds.length})
+                  </button>
+
+                  {/* Delete Forever Button */}
+                  <button
+                    onClick={() => {
+                      sfx.playClick();
+                      setIsBatchDeleteOpen(true);
+                    }}
+                    style={{
+                      background: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      color: '#ef4444',
+                      padding: '0.42rem 0.85rem',
+                      borderRadius: 9999,
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <Trash2 size={14} /> Delete Forever ({selectedIds.length})
+                  </button>
+
+                  {/* Clear Selection */}
+                  <button
+                    onClick={() => {
+                      setSelectedIds([]);
+                      setSelectedFolderIds([]);
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#64748b',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      padding: '0.2rem 0.4rem',
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              ) : (
+                <div className="batch-actions-group" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  {/* Move Button */}
+                  <button
+                    onClick={() => {
+                      sfx.playClick();
+                      const selectedFiles = files.filter((f) => selectedIds.includes(f.id));
+                      setFilesForMove(selectedFiles);
+                      setIsMoveModalOpen(true);
+                    }}
+                    style={{
+                      background: '#eff6ff',
+                      border: '1px solid #bfdbfe',
+                      color: 'var(--tg-blue)',
+                      padding: '0.42rem 0.85rem',
+                      borderRadius: 9999,
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <FolderInput size={14} /> Move
+                  </button>
+
+                  {/* Download / Download Batch Button */}
+                  <button
+                    onClick={() => {
+                      sfx.playComplete();
+                      if (selectedIds.length === 1) {
+                        const file = files.find((f) => f.id === selectedIds[0]);
+                        if (file) {
+                          const a = document.createElement('a');
+                          a.href = api.getFileDownloadUrl(file.id);
+                          a.download = file.name;
+                          document.body.appendChild(a);
+                          a.click();
+                          document.body.removeChild(a);
+                        }
+                      } else if (selectedIds.length > 1) {
+                        const a = document.createElement('a');
+                        a.href = api.getBatchDownloadUrl(selectedIds);
+                        a.download = `FreeBox_Batch_${new Date().toISOString().slice(0, 10)}.zip`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      }
+                      setSelectedIds([]);
+                      setSelectedFolderIds([]);
+                    }}
+                    style={{
+                      background: 'var(--tg-blue)',
+                      border: 'none',
+                      color: '#fff',
+                      padding: '0.42rem 0.95rem',
+                      borderRadius: 9999,
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      boxShadow: '0 2px 8px rgba(36,129,204,0.25)',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <Download size={14} /> {selectedIds.length > 1 ? `Download Batch (${selectedIds.length})` : 'Download'}
+                  </button>
+
+                  {/* Delete Button */}
+                  <button
+                    onClick={() => {
+                      sfx.playClick();
+                      if (selectedIds.length > 0) {
+                        setIsBatchDeleteOpen(true);
+                      }
+                      if (selectedFolderIds.length > 0) {
+                        selectedFolderIds.forEach((id) => {
+                          const f = folders.find((fl) => fl.id === id);
+                          if (f) onDeleteFolder(f);
+                        });
+                        setSelectedFolderIds([]);
+                      }
+                    }}
+                    style={{
+                      background: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      color: '#ef4444',
+                      padding: '0.42rem 0.85rem',
+                      borderRadius: 9999,
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <Trash2 size={14} /> Delete
+                  </button>
+
+                  {/* Clear Selection */}
+                  <button
+                    onClick={() => {
+                      setSelectedIds([]);
+                      setSelectedFolderIds([]);
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#64748b',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      padding: '0.2rem 0.4rem',
+                    }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
             </div>
-          ) : (
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              {/* Move Button */}
-              <button
-                onClick={() => {
-                  sfx.playClick();
-                  const selectedFiles = files.filter((f) => selectedIds.includes(f.id));
-                  setFilesForMove(selectedFiles);
-                  setIsMoveModalOpen(true);
-                }}
-                style={{
-                  background: '#eff6ff',
-                  border: '1px solid #bfdbfe',
-                  color: 'var(--tg-blue)',
-                  padding: '0.42rem 0.85rem',
-                  borderRadius: 9999,
-                  cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <FolderInput size={14} /> Move
-              </button>
-
-              {/* Download / Download Batch Button */}
-              <button
-                onClick={() => {
-                  sfx.playComplete();
-                  if (selectedIds.length === 1) {
-                    const file = files.find((f) => f.id === selectedIds[0]);
-                    if (file) {
-                      const a = document.createElement('a');
-                      a.href = api.getFileDownloadUrl(file.id);
-                      a.download = file.name;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                    }
-                  } else if (selectedIds.length > 1) {
-                    const a = document.createElement('a');
-                    a.href = api.getBatchDownloadUrl(selectedIds);
-                    a.download = `FreeBox_Batch_${new Date().toISOString().slice(0, 10)}.zip`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                  }
-                  setSelectedIds([]);
-                }}
-                style={{
-                  background: 'var(--tg-blue)',
-                  border: 'none',
-                  color: '#fff',
-                  padding: '0.42rem 0.95rem',
-                  borderRadius: 9999,
-                  cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  boxShadow: '0 2px 8px rgba(36,129,204,0.25)',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <Download size={14} /> {selectedIds.length > 1 ? `Download Batch (${selectedIds.length})` : 'Download'}
-              </button>
-
-              {/* Delete Button */}
-              <button
-                onClick={() => {
-                  sfx.playClick();
-                  setIsBatchDeleteOpen(true);
-                }}
-                style={{
-                  background: '#fef2f2',
-                  border: '1px solid #fecaca',
-                  color: '#ef4444',
-                  padding: '0.42rem 0.85rem',
-                  borderRadius: 9999,
-                  cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 5,
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                <Trash2 size={14} /> Delete
-              </button>
-
-              {/* Clear Selection */}
-              <button
-                onClick={() => setSelectedIds([])}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#64748b',
-                  cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  padding: '0.2rem 0.4rem',
-                }}
-              >
-                Clear
-              </button>
-            </div>
-          )}
-        </div>
+          );
+        })()}
       </div>
       )}
 

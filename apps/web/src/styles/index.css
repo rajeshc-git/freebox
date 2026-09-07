@@ -984,6 +984,33 @@ body {
   .mobile-table-cell-name {
     max-width: 180px !important;
   }
+  .floating-batch-bar {
+    position: fixed !important;
+    bottom: 1rem !important;
+    left: 1rem !important;
+    right: 1rem !important;
+    transform: none !important;
+    width: calc(100% - 2rem) !important;
+    max-width: none !important;
+    border-radius: 18px !important;
+    padding: 0.85rem 1rem !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.65rem !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.18) !important;
+  }
+  .floating-batch-bar .batch-actions-group {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    gap: 0.45rem !important;
+  }
+  .floating-batch-bar .batch-actions-group button {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 0.55rem 1rem !important;
+    font-size: 0.84rem !important;
+  }
 }
 
 @media (min-width: 769px) {
