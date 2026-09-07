@@ -948,6 +948,26 @@ body {
   background: #f1f5f9 !important;
 }
 
+.list-table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+.list-table-container::-webkit-scrollbar {
+  height: 6px;
+}
+.list-table-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 9999px;
+}
+.list-table-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+.list-table-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
 @media (max-width: 768px) {
   .landing-footer-links {
     display: none !important;

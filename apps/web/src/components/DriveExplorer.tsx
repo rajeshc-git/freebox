@@ -1813,8 +1813,18 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
               </div>
             ) : (
               /* List View */
-              <div style={{ background: '#fff', border: '1px solid var(--border-subtle)', borderRadius: 16, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <div
+                className="list-table-container"
+                style={{
+                  background: '#fff',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 16,
+                  overflowX: 'auto',
+                  WebkitOverflowScrolling: 'touch',
+                  width: '100%',
+                }}
+              >
+                <table style={{ width: '100%', minWidth: 520, borderCollapse: 'collapse' }}>
                   <thead>
                     <tr
                       style={{
