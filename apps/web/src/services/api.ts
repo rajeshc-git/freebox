@@ -1,4 +1,4 @@
-import { User, Folder, DriveFile, StorageMetrics } from '../types';
+import { User, Folder, DriveFile, StorageMetrics, TelegramArchivedChat, TelegramChatMedia } from '../types';
 
 const API_BASE = '/api';
 
@@ -288,4 +288,42 @@ export const api = {
     if (!res.ok) return { totalMessages: 0, messages: [] };
     return res.json();
   },
+
+  // Telegram Archived Chats & Media
+  async getArchivedChats(): Promise<TelegramArchivedChat[]> {
+    const res = await fetch(`${API_BASE}/telegram/archived-chats`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      throw new Error('Failed to fetch archived chats');
+    }
+    return res.json();
+  },
+
+  async getChatMedia(
+    chatId: string,
+    category?: string,
+    limit = 60,
+    offsetId?: number
+  ): Promise<{ media: TelegramChatMedia[]; count: number; hasMore: boolean }> {
+    const params = new URLSearchParams();
+    if (category && category !== 'all') params.set('category', category);
+    if (limit) params.set('limit', limit.toString());
+    if (offsetId) params.set('offsetId', offsetId.toString());
+
+    const res = await fetch(`${API_BASE}/telegram/chats/${chatId}/media?${params.toString()}`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      throw new Error('Failed to fetch chat media');
+    }
+    return res.json();
+  },
+
+  getChatMediaStreamUrl(chatId: string, messageId: number): string {
+    const token = getAuthToken();
+    const tokenParam = token ? `?token=${encodeURIComponent(token)}` : '';
+    return `${API_BASE}/telegram/chats/${chatId}/media/${messageId}/stream${tokenParam}`;
+  },
 };
+

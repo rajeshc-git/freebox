@@ -33,13 +33,16 @@ import {
   RotateCcw,
   ChevronDown,
   Sparkles,
+  Archive,
 } from 'lucide-react';
 import { User, Folder, DriveFile, StorageMetrics } from '../types';
 import { sfx } from '../services/sound';
 import { api } from '../services/api';
 import { MoveModal, DeleteFileModal, DeleteBatchFilesModal, EmptyTrashModal } from './Modals';
 import { LivePhotosView, LivePhotoPair } from './LivePhotosView';
+import { ArchivedChatsView } from './ArchivedChatsView';
 import { SmartImage } from './SmartImage';
+
 
 interface DriveExplorerProps {
   user: User | null;
@@ -595,6 +598,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
             { id: 'audio', label: 'Audio', count: metrics?.categories?.audio ?? 0 },
             { id: 'archive', label: 'Archives', count: metrics?.categories?.archives ?? 0 },
             { id: 'live_photo', label: 'Live Photos', count: metrics?.livePhotosCount ?? metrics?.categories?.live_photo ?? livePhotosCount, isLive: true },
+            { id: 'others', label: 'Others', isArchive: true },
           ].map((cat) => (
             <li
               key={cat.id}
@@ -632,8 +636,24 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                     LIVE
                   </span>
                 )}
+                {cat.isArchive && (
+                  <span
+                    style={{
+                      fontSize: '0.65rem',
+                      fontWeight: 800,
+                      background: currentCategory === cat.id ? 'var(--tg-blue)' : 'rgba(36,129,204,0.12)',
+                      color: currentCategory === cat.id ? '#fff' : 'var(--tg-blue)',
+                      padding: '0.1rem 0.35rem',
+                      borderRadius: 4,
+                    }}
+                  >
+                    CHATS
+                  </span>
+                )}
               </div>
-              <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>{cat.count}</span>
+              {cat.count !== undefined && (
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>{cat.count}</span>
+              )}
             </li>
           ))}
         </ul>
@@ -1154,7 +1174,43 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           >
             {/* Top Row on Mobile / Left on Desktop: Breadcrumb path with Select All on Mobile */}
             <div className="explorer-subbar-top">
-              {currentCategory === 'live_photo' ? (
+              {currentCategory === 'others' ? (
+                /* Others / Archived Chats Breadcrumb */
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.88rem', flexWrap: 'wrap', minWidth: 0 }}>
+                  <span
+                    onClick={() => {
+                      sfx.playClick();
+                      onNavigateFolder(null);
+                      onSelectCategory('all');
+                    }}
+                    style={{
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      fontWeight: 500,
+                      padding: '0.2rem 0.55rem',
+                      borderRadius: 8,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    My Files
+                  </span>
+                  <ChevronRight size={14} color="var(--text-light)" />
+                  <span
+                    style={{
+                      color: 'var(--tg-blue)',
+                      cursor: 'default',
+                      fontWeight: 700,
+                      padding: '0.2rem 0.55rem',
+                      borderRadius: 8,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                    }}
+                  >
+                    <Archive size={14} /> Others (Archived Chats)
+                  </span>
+                </div>
+              ) : currentCategory === 'live_photo' ? (
                 /* Live Photos Breadcrumb */
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.88rem', flexWrap: 'wrap', minWidth: 0 }}>
                   <span
@@ -1361,6 +1417,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                   { id: 'audio', label: 'Audio' },
                   { id: 'archive', label: 'Archives' },
                   { id: 'live_photo', label: 'Live Photos ✨' },
+                  { id: 'others', label: 'Others 📦' },
                 ].map((cat) => (
                   <button
                     key={cat.id}
@@ -1388,8 +1445,10 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           </div>
         )}
 
-        {/* If Live Photos is selected, render the dedicated Apple Live Photos Studio */}
-        {currentCategory === 'live_photo' ? (
+        {/* If Others is selected, render the dedicated Archived Chats & Media Explorer */}
+        {currentCategory === 'others' ? (
+          <ArchivedChatsView />
+        ) : currentCategory === 'live_photo' ? (
           <LivePhotosView
             files={files}
             selectedIds={selectedIds}

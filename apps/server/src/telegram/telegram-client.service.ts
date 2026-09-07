@@ -199,4 +199,194 @@ export class TelegramClientService {
 
     return null;
   }
+
+  /**
+   * Fetch all chats in the Telegram Archive folder (folder = 1).
+   */
+  async getArchivedChats(phone: string): Promise<{
+    id: string;
+    title: string;
+    isChannel: boolean;
+    isGroup: boolean;
+    isUser: boolean;
+    unreadCount: number;
+    date: number;
+  }[]> {
+    const client = await this.getClient(phone);
+    const dialogs = await client.getDialogs({ folder: 1 });
+
+    return dialogs.map((d) => {
+      const entity = d.entity as any;
+      const title =
+        d.title ||
+        d.name ||
+        entity?.title ||
+        `${entity?.firstName || ''} ${entity?.lastName || ''}`.trim() ||
+        'Archived Chat';
+
+      return {
+        id: d.id?.toString() || entity?.id?.toString() || '',
+        title,
+        isChannel: !!d.isChannel,
+        isGroup: !!d.isGroup,
+        isUser: !!d.isUser,
+        unreadCount: d.unreadCount || 0,
+        date: d.date || 0,
+      };
+    });
+  }
+
+  /**
+   * Fetch media messages from a specific Telegram chat/channel.
+   */
+  async getChatMedia(
+    phone: string,
+    chatId: string,
+    category?: string,
+    limit = 60,
+    offsetId?: number,
+  ): Promise<{
+    id: number;
+    chatId: string;
+    name: string;
+    size: number;
+    type: 'image' | 'video' | 'document' | 'audio';
+    mimeType: string;
+    date: string;
+    telegramMsgId: number;
+  }[]> {
+    const client = await this.getClient(phone);
+
+    let entityInput: any = chatId;
+    if (/^-?\d+$/.test(chatId)) {
+      try {
+        entityInput = BigInt(chatId);
+      } catch {
+        entityInput = chatId;
+      }
+    }
+
+    const entity = await client.getEntity(entityInput);
+
+    let filter: any = undefined;
+    if (category === 'image' || category === 'photo') {
+      filter = new Api.InputMessagesFilterPhotos();
+    } else if (category === 'video') {
+      filter = new Api.InputMessagesFilterVideo();
+    } else if (category === 'document') {
+      filter = new Api.InputMessagesFilterDocument();
+    } else if (category === 'audio') {
+      filter = new Api.InputMessagesFilterMusic();
+    }
+
+    const messages = await client.getMessages(entity, {
+      filter,
+      limit,
+      offsetId,
+    });
+
+    const results: any[] = [];
+    for (const msg of messages) {
+      if (!msg.media) continue;
+
+      let name = `media_${msg.id}`;
+      let size = 0;
+      let mimeType = 'application/octet-stream';
+      let type: 'image' | 'video' | 'document' | 'audio' = 'document';
+
+      const doc = (msg.media as any)?.document;
+      const photo = (msg.media as any)?.photo;
+
+      if (doc) {
+        mimeType = doc.mimeType || 'application/octet-stream';
+        size = Number(doc.size || 0);
+
+        const fileNameAttr = doc.attributes?.find(
+          (a: any) => a.className === 'DocumentAttributeFilename' || a.fileName,
+        );
+        if (fileNameAttr?.fileName) {
+          name = fileNameAttr.fileName;
+        } else if (mimeType.startsWith('image/')) {
+          name = `photo_${msg.id}.${mimeType.split('/')[1] || 'jpg'}`;
+        } else if (mimeType.startsWith('video/')) {
+          name = `video_${msg.id}.${mimeType.split('/')[1] || 'mp4'}`;
+        }
+
+        if (mimeType.startsWith('image/')) type = 'image';
+        else if (mimeType.startsWith('video/')) type = 'video';
+        else if (mimeType.startsWith('audio/')) type = 'audio';
+        else type = 'document';
+      } else if (photo) {
+        type = 'image';
+        mimeType = 'image/jpeg';
+        name = `photo_${msg.id}.jpg`;
+        size = 0;
+      } else {
+        continue;
+      }
+
+      results.push({
+        id: msg.id,
+        chatId,
+        name,
+        size,
+        type,
+        mimeType,
+        date: new Date(msg.date * 1000).toISOString(),
+        telegramMsgId: msg.id,
+      });
+    }
+
+    return results;
+  }
+
+  /**
+   * Download media from a specific chat message.
+   */
+  async downloadChatMedia(
+    phone: string,
+    chatId: string,
+    messageId: number,
+  ): Promise<{ buffer: Buffer; mimeType: string; fileName: string }> {
+    const client = await this.getClient(phone);
+
+    let entityInput: any = chatId;
+    if (/^-?\d+$/.test(chatId)) {
+      try {
+        entityInput = BigInt(chatId);
+      } catch {
+        entityInput = chatId;
+      }
+    }
+
+    const entity = await client.getEntity(entityInput);
+    const messages = await client.getMessages(entity, { ids: [messageId] });
+
+    if (!messages || messages.length === 0 || !messages[0]) {
+      throw new Error(`Message #${messageId} not found in chat ${chatId}`);
+    }
+
+    const message = messages[0];
+    const buffer = (await client.downloadMedia(message, {})) as Buffer;
+    if (!buffer) {
+      throw new Error(`Could not download media from message #${messageId}`);
+    }
+
+    let mimeType = 'application/octet-stream';
+    let fileName = `file_${messageId}`;
+
+    const doc = (message.media as any)?.document;
+    if (doc) {
+      mimeType = doc.mimeType || 'application/octet-stream';
+      const fileNameAttr = doc.attributes?.find(
+        (a: any) => a.className === 'DocumentAttributeFilename' || a.fileName,
+      );
+      if (fileNameAttr?.fileName) fileName = fileNameAttr.fileName;
+    } else if ((message.media as any)?.photo) {
+      mimeType = 'image/jpeg';
+      fileName = `photo_${messageId}.jpg`;
+    }
+
+    return { buffer, mimeType, fileName };
+  }
 }

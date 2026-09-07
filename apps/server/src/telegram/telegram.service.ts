@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { TelegramClientService } from './telegram-client.service';
 
 @Injectable()
 export class TelegramService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly telegramClient: TelegramClientService,
+  ) {}
 
   async getSavedMessages() {
     const files = await this.prisma.file.findMany({
@@ -14,7 +18,7 @@ export class TelegramService {
     return {
       chatTitle: 'Saved Messages',
       totalMessages: files.length,
-      messages: files.map(f => ({
+      messages: files.map((f) => ({
         id: f.telegramMsgId,
         fileId: f.id,
         fileName: f.name,
@@ -28,5 +32,17 @@ export class TelegramService {
         thumbnailUrl: f.telegramMsgId > 0 ? `/api/drive/files/${f.id}/stream` : null,
       })),
     };
+  }
+
+  async getArchivedChats(phone: string) {
+    return this.telegramClient.getArchivedChats(phone);
+  }
+
+  async getChatMedia(phone: string, chatId: string, category?: string, limit = 60, offsetId?: number) {
+    return this.telegramClient.getChatMedia(phone, chatId, category, limit, offsetId);
+  }
+
+  async downloadChatMedia(phone: string, chatId: string, messageId: number) {
+    return this.telegramClient.downloadChatMedia(phone, chatId, messageId);
   }
 }

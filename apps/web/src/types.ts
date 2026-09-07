@@ -81,3 +81,25 @@ export interface UploadQueueItem {
   etaSeconds?: number;
   bytesUploaded?: number;
 }
+
+export interface TelegramArchivedChat {
+  id: string;
+  title: string;
+  isChannel: boolean;
+  isGroup: boolean;
+  isUser: boolean;
+  unreadCount: number;
+  folderId: number;
+  date: number;
+}
+
+export interface TelegramChatMedia {
+  id: number;
+  chatId: string;
+  type: 'image' | 'video' | 'document' | 'audio';
+  mimeType: string;
+  fileName: string;
+  size: number;
+  date: number;
+  streamUrl: string;
+}
