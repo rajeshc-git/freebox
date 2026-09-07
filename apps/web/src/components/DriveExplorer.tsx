@@ -514,7 +514,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           </button>
         </div>
 
-        <ul style={{ padding: '1rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', listStyle: 'none' }}>
+        <ul style={{ padding: '0.5rem 0.75rem 0.25rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', listStyle: 'none' }}>
           {[
             { id: 'all', label: 'My Files', icon: FolderIcon, count: metrics?.totalFiles ?? displayedFiles.length },
             { id: 'starred', label: 'Starred', icon: Star, count: metrics?.categories?.starred ?? 0 },
@@ -547,7 +547,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '0.65rem 0.85rem',
+                padding: '0.6rem 0.85rem',
                 borderRadius: 12,
                 fontSize: '0.92rem',
                 fontWeight: currentNav === item.id || dragTargetFolderId === 'sidebar-all' ? 700 : 600,
@@ -579,7 +579,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
         <div
           style={{
-            padding: '1.25rem 1.25rem 0.5rem 1.25rem',
+            padding: '0.65rem 1.25rem 0.35rem 1.25rem',
             fontSize: '0.72rem',
             fontWeight: 800,
             letterSpacing: '0.06em',
@@ -590,7 +590,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           CATEGORIES
         </div>
 
-        <ul style={{ padding: '0 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.25rem', listStyle: 'none' }}>
+        <ul style={{ padding: '0 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', listStyle: 'none' }}>
           {[
             { id: 'image', label: 'Photos', count: metrics?.categories?.images ?? 0 },
             { id: 'video', label: 'Videos', count: metrics?.categories?.videos ?? 0 },
@@ -611,7 +611,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '0.6rem 0.85rem',
+                padding: '0.55rem 0.85rem',
                 borderRadius: 12,
                 fontSize: '0.88rem',
                 fontWeight: 500,
