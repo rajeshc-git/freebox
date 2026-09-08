@@ -46,6 +46,10 @@ export class TelegramService {
     return this.telegramClient.downloadChatMedia(phone, chatId, messageId);
   }
 
+  async streamChatMedia(phone: string, chatId: string, messageId: number, req: any, res: any) {
+    return this.telegramClient.streamMessageMedia(phone, messageId, req, res, { chatId });
+  }
+
   async getChatStats(phone: string, chatId: string) {
     return this.telegramClient.getChatStats(phone, chatId);
   }

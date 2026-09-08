@@ -1,8 +1,9 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
-import { TelegramClient, Api } from 'telegram';
+import { TelegramClient, Api, helpers } from 'telegram';
 import { StringSession } from 'telegram/sessions';
 import { CustomFile } from 'telegram/client/uploads';
+import { Request, Response } from 'express';
 
 interface CachedClient {
   client: TelegramClient;
@@ -69,23 +70,47 @@ export class TelegramClientService {
 
   /**
    * Upload a file to Telegram Saved Messages ("me").
-   * Returns the sent Message containing the file.
+   * Supports disk-backed streaming uploads via filePath (zero RAM buffering) or Buffer.
    */
   async uploadFile(
     phone: string,
-    fileBuffer: Buffer,
-    fileName: string,
-    mimeType: string,
-    fileSize: number,
+    fileSource:
+      | {
+          filePath?: string;
+          fileBuffer?: Buffer;
+          fileName: string;
+          mimeType: string;
+          fileSize: number;
+        }
+      | Buffer,
+    fileName?: string,
+    mimeType?: string,
+    fileSize?: number,
     onProgress?: (progress: number) => void,
   ): Promise<Api.Message> {
     const client = await this.getClient(phone);
 
-    const customFile = new CustomFile(fileName, fileSize, '', fileBuffer);
+    let name = '';
+    let size = 0;
+    let path = '';
+    let buffer: Buffer | undefined;
+
+    if (Buffer.isBuffer(fileSource)) {
+      name = fileName || 'file';
+      size = fileSize || fileSource.length;
+      buffer = fileSource;
+    } else {
+      name = fileSource.fileName;
+      size = fileSource.fileSize;
+      path = fileSource.filePath || '';
+      buffer = fileSource.fileBuffer;
+    }
+
+    const customFile = new CustomFile(name, size, path, buffer);
 
     const message = await client.sendFile('me', {
       file: customFile,
-      caption: `📁 ${fileName}`,
+      caption: `📁 ${name}`,
       forceDocument: true,
       progressCallback: onProgress
         ? (progress: number) => {
@@ -94,9 +119,211 @@ export class TelegramClientService {
         : undefined,
     });
 
-    this.logger.log(`Uploaded "${fileName}" (${fileSize} bytes) to Saved Messages for ${phone}, msgId=${message.id}`);
+    this.logger.log(`Uploaded "${name}" (${size} bytes) to Saved Messages for ${phone}, msgId=${message.id}`);
 
     return message as Api.Message;
+  }
+
+  /**
+   * Stream media from Telegram directly to Express HTTP response using MTProto iterDownload.
+   * Eliminates in-memory buffering and supports RFC 7233 Range headers (HTTP 206) for video/audio seek.
+   */
+  async streamMessageMedia(
+    phone: string,
+    messageId: number,
+    req: Request,
+    res: Response,
+    options?: {
+      chatId?: string;
+      customFileName?: string;
+      customMimeType?: string;
+      isDownload?: boolean;
+      isPublic?: boolean;
+    },
+  ): Promise<void> {
+    const client = await this.getClient(phone);
+
+    let entity: any = 'me';
+    if (options?.chatId && options.chatId !== 'me' && options.chatId !== 'saved') {
+      entity = await this.resolveEntity(client, options.chatId);
+    }
+
+    const messages = await client.getMessages(entity, {
+      ids: [messageId],
+    });
+
+    if (!messages || messages.length === 0 || !messages[0]) {
+      throw new NotFoundException(`Message #${messageId} not found`);
+    }
+
+    const message = messages[0];
+    if (!message.media) {
+      throw new NotFoundException(`Message #${messageId} has no media`);
+    }
+
+    const doc = (message.media as any)?.document;
+    const photo = (message.media as any)?.photo;
+
+    let mimeType = options?.customMimeType || 'application/octet-stream';
+    let totalSize = 0;
+    let fileName = options?.customFileName || `media_${messageId}`;
+
+    if (doc) {
+      mimeType = options?.customMimeType || doc.mimeType || 'application/octet-stream';
+      totalSize = this.parseTelegramMediaSize(doc);
+      const fileNameAttr = doc.attributes?.find(
+        (a: any) => a.className === 'DocumentAttributeFilename' || a.fileName,
+      );
+      const audioAttr = doc.attributes?.find(
+        (a: any) => a.className === 'DocumentAttributeAudio' || a.duration !== undefined || a.voice !== undefined,
+      );
+      if (!options?.customFileName) {
+        if (fileNameAttr?.fileName) {
+          fileName = fileNameAttr.fileName;
+        } else if (audioAttr) {
+          fileName = audioAttr.voice ? `voice_${messageId}.ogg` : `audio_${messageId}.mp3`;
+        }
+      }
+      if (audioAttr && (!mimeType || mimeType === 'application/octet-stream')) {
+        mimeType = 'audio/ogg';
+      }
+    } else if (photo) {
+      mimeType = options?.customMimeType || 'image/jpeg';
+      totalSize = this.parseTelegramMediaSize(photo);
+      if (!options?.customFileName) {
+        fileName = `photo_${messageId}.jpg`;
+      }
+    }
+
+    if (mimeType.includes(';')) {
+      mimeType = mimeType.split(';')[0].trim();
+    }
+    if (mimeType === 'audio/opus' || mimeType === 'audio/x-opus+ogg') {
+      mimeType = 'audio/ogg';
+    } else if (fileName.endsWith('.ogg') && (mimeType === 'application/octet-stream' || mimeType === 'audio/opus')) {
+      mimeType = 'audio/ogg';
+    } else if (fileName.endsWith('.mp3') && mimeType === 'application/octet-stream') {
+      mimeType = 'audio/mpeg';
+    }
+
+    const disposition = options?.isDownload ? 'attachment' : 'inline';
+    const cacheControl = options?.isPublic ? 'public, max-age=86400' : 'private, max-age=3600';
+    const encodedFileName = encodeURIComponent(fileName);
+
+    const rangeHeader = req.headers.range;
+
+    // Check if client disconnected
+    let isClientDisconnected = false;
+    req.on('close', () => {
+      isClientDisconnected = true;
+    });
+
+    if (rangeHeader && totalSize > 0) {
+      const match = rangeHeader.match(/bytes=(\d*)-(\d*)/);
+      if (match) {
+        let start = match[1] ? parseInt(match[1], 10) : 0;
+        let end = match[2] ? parseInt(match[2], 10) : totalSize - 1;
+
+        if (isNaN(start)) start = 0;
+        if (isNaN(end) || end >= totalSize) end = totalSize - 1;
+
+        if (start > end || start >= totalSize) {
+          res
+            .status(416)
+            .set({
+              'Content-Range': `bytes */${totalSize}`,
+            })
+            .end();
+          return;
+        }
+
+        const contentLength = end - start + 1;
+
+        res.status(206).set({
+          'Content-Type': mimeType,
+          'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': contentLength.toString(),
+          'Content-Disposition': `${disposition}; filename="${encodedFileName}"`,
+          'Cache-Control': cacheControl,
+        });
+
+        try {
+          const chunkSize = 128 * 1024;
+          const iter = client.iterDownload({
+            file: message.media,
+            offset: helpers.returnBigInt(start),
+            requestSize: chunkSize,
+            fileSize: helpers.returnBigInt(totalSize),
+          });
+
+          let bytesStreamed = 0;
+          for await (const chunk of iter) {
+            if (isClientDisconnected || res.writableEnded || res.destroyed) break;
+            let chunkToSend = chunk;
+            if (bytesStreamed + chunkToSend.length > contentLength) {
+              chunkToSend = chunkToSend.subarray(0, contentLength - bytesStreamed);
+            }
+            res.write(chunkToSend);
+            bytesStreamed += chunkToSend.length;
+            if (bytesStreamed >= contentLength) break;
+          }
+
+          if (!res.writableEnded) res.end();
+          return;
+        } catch (streamErr) {
+          this.logger.warn(`Range streaming via iterDownload failed: ${streamErr.message}, attempting buffer fallback`);
+        }
+      }
+    }
+
+    // Full file streaming
+    try {
+      res.status(200).set({
+        'Content-Type': mimeType,
+        ...(totalSize > 0 ? { 'Content-Length': totalSize.toString() } : {}),
+        'Content-Disposition': `${disposition}; filename="${encodedFileName}"`,
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': cacheControl,
+      });
+
+      const iter = client.iterDownload({
+        file: message.media,
+        requestSize: 128 * 1024,
+      });
+
+      for await (const chunk of iter) {
+        if (isClientDisconnected || res.writableEnded || res.destroyed) break;
+        res.write(chunk);
+      }
+
+      if (!res.writableEnded) res.end();
+      return;
+    } catch (streamErr) {
+      this.logger.warn(`Full streaming via iterDownload failed: ${streamErr.message}, attempting buffer fallback`);
+    }
+
+    // Direct fallback for single-part small photo sizes or when iterDownload is unsupported on specific media
+    try {
+      const buffer = (await client.downloadMedia(message, {})) as Buffer;
+      if (buffer && !res.writableEnded) {
+        if (!res.headersSent) {
+          res.status(200).set({
+            'Content-Type': mimeType,
+            'Content-Length': buffer.length.toString(),
+            'Content-Disposition': `${disposition}; filename="${encodedFileName}"`,
+            'Accept-Ranges': 'bytes',
+            'Cache-Control': cacheControl,
+          });
+        }
+        res.end(buffer);
+      }
+    } catch (fallbackErr) {
+      this.logger.error(`Media download completely failed: ${fallbackErr.message}`);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Failed to download media' });
+      }
+    }
   }
 
   /**
@@ -485,48 +712,20 @@ export class TelegramClientService {
     const client = await this.getClient(phone);
     const entity = await this.resolveEntity(client, chatId);
 
-    let photos = 0;
-    let videos = 0;
-    let files = 0;
-    let voice = 0;
+    const [photosRes, videosRes, filesRes, voiceRes, musicRes] = await Promise.all([
+      client.getMessages(entity, { filter: new Api.InputMessagesFilterPhotos(), limit: 1 }).catch(() => null),
+      client.getMessages(entity, { filter: new Api.InputMessagesFilterVideo(), limit: 1 }).catch(() => null),
+      client.getMessages(entity, { filter: new Api.InputMessagesFilterDocument(), limit: 1 }).catch(() => null),
+      client.getMessages(entity, { filter: new Api.InputMessagesFilterVoice(), limit: 1 }).catch(() => null),
+      client.getMessages(entity, { filter: new Api.InputMessagesFilterMusic(), limit: 1 }).catch(() => null),
+    ]);
 
-    try {
-      const photosRes = await client.getMessages(entity, {
-        filter: new Api.InputMessagesFilterPhotos(),
-        limit: 1,
-      });
-      photos = (photosRes as any)?.total || (photosRes as any)?.count || (Array.isArray(photosRes) ? photosRes.length : 0);
-    } catch {}
-
-    try {
-      const videosRes = await client.getMessages(entity, {
-        filter: new Api.InputMessagesFilterVideo(),
-        limit: 1,
-      });
-      videos = (videosRes as any)?.total || (videosRes as any)?.count || (Array.isArray(videosRes) ? videosRes.length : 0);
-    } catch {}
-
-    try {
-      const filesRes = await client.getMessages(entity, {
-        filter: new Api.InputMessagesFilterDocument(),
-        limit: 1,
-      });
-      files = (filesRes as any)?.total || (filesRes as any)?.count || (Array.isArray(filesRes) ? filesRes.length : 0);
-    } catch {}
-
-    try {
-      const voiceRes = await client.getMessages(entity, {
-        filter: new Api.InputMessagesFilterVoice(),
-        limit: 1,
-      });
-      const musicRes = await client.getMessages(entity, {
-        filter: new Api.InputMessagesFilterMusic(),
-        limit: 1,
-      });
-      const vCount = (voiceRes as any)?.total || 0;
-      const mCount = (musicRes as any)?.total || 0;
-      voice = vCount + mCount;
-    } catch {}
+    const photos = (photosRes as any)?.total || (photosRes as any)?.count || (Array.isArray(photosRes) ? photosRes.length : 0);
+    const videos = (videosRes as any)?.total || (videosRes as any)?.count || (Array.isArray(videosRes) ? videosRes.length : 0);
+    const files = (filesRes as any)?.total || (filesRes as any)?.count || (Array.isArray(filesRes) ? filesRes.length : 0);
+    const vCount = (voiceRes as any)?.total || (voiceRes as any)?.count || (Array.isArray(voiceRes) ? voiceRes.length : 0);
+    const mCount = (musicRes as any)?.total || (musicRes as any)?.count || (Array.isArray(musicRes) ? musicRes.length : 0);
+    const voice = vCount > 0 ? vCount : mCount;
 
     return {
       photos,

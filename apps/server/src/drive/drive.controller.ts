@@ -18,7 +18,28 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
+import { diskStorage } from 'multer';
+import * as os from 'os';
+import * as path from 'path';
+import * as fs from 'fs';
 import { DriveService } from './drive.service';
+
+const uploadSpoolDir = path.join(os.tmpdir(), 'freebox-spool');
+if (!fs.existsSync(uploadSpoolDir)) {
+  try {
+    fs.mkdirSync(uploadSpoolDir, { recursive: true });
+  } catch {}
+}
+
+const multerDiskStorage = diskStorage({
+  destination: (_req, _file, cb) => {
+    cb(null, uploadSpoolDir);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, `${uniqueSuffix}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`);
+  },
+});
 
 @Controller('drive')
 export class DriveController {
@@ -27,67 +48,7 @@ export class DriveController {
     private readonly jwtService: JwtService,
   ) {}
 
-  /**
-   * Serve a buffer with RFC 7233 HTTP 206 Partial Content / Range support for instant video playback and seeking.
-   */
-  private serveBufferWithRange(
-    req: Request,
-    res: Response,
-    buffer: Buffer,
-    file: any,
-    isPublic = false,
-  ) {
-    const totalSize = buffer.length;
-    const rangeHeader = req.headers.range;
 
-    const mimeType = file.mimeType || 'application/octet-stream';
-    const filename = encodeURIComponent(file.name || 'file');
-
-    if (rangeHeader) {
-      const match = rangeHeader.match(/bytes=(\d*)-(\d*)/);
-      if (match) {
-        let start = match[1] ? parseInt(match[1], 10) : 0;
-        let end = match[2] ? parseInt(match[2], 10) : totalSize - 1;
-
-        if (isNaN(start)) start = 0;
-        if (isNaN(end) || end >= totalSize) end = totalSize - 1;
-
-        if (start > end || start >= totalSize) {
-          res
-            .status(416)
-            .set({
-              'Content-Range': `bytes */${totalSize}`,
-            })
-            .end();
-          return;
-        }
-
-        const chunk = buffer.subarray(start, end + 1);
-
-        res.status(206).set({
-          'Content-Type': mimeType,
-          'Content-Range': `bytes ${start}-${end}/${totalSize}`,
-          'Accept-Ranges': 'bytes',
-          'Content-Length': chunk.length.toString(),
-          'Content-Disposition': `inline; filename="${filename}"`,
-          'Cache-Control': isPublic ? 'public, max-age=86400' : 'private, max-age=3600',
-        });
-
-        res.end(chunk);
-        return;
-      }
-    }
-
-    res.status(200).set({
-      'Content-Type': mimeType,
-      'Content-Length': totalSize.toString(),
-      'Content-Disposition': `inline; filename="${filename}"`,
-      'Cache-Control': isPublic ? 'public, max-age=86400' : 'private, max-age=3600',
-      'Accept-Ranges': 'bytes',
-    });
-
-    res.end(buffer);
-  }
 
   /**
    * Extract user phone from JWT Bearer token or query param.
@@ -163,10 +124,15 @@ export class DriveController {
   }
 
   /**
-   * Upload file to Telegram MTProto storage.
+   * Upload file to Telegram MTProto storage using disk-spooled streaming (zero RAM buffering).
    */
   @Post('files/upload')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024 * 1024 } }))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: multerDiskStorage,
+      limits: { fileSize: 2 * 1024 * 1024 * 1024 }, // 2 GB
+    }),
+  )
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
     @Body('folderId') folderId: string,
@@ -181,7 +147,12 @@ export class DriveController {
 
     return this.driveService.uploadFileToTelegram(
       userPhone,
-      file.buffer,
+      {
+        filePath: file.path,
+        fileName: file.originalname,
+        mimeType: file.mimetype,
+        fileSize: file.size,
+      },
       file.originalname,
       file.mimetype,
       file.size,
@@ -190,7 +161,7 @@ export class DriveController {
   }
 
   /**
-   * Stream / download a file from Telegram.
+   * Stream a file from Telegram directly to response.
    * Accepts auth via Bearer header or ?token= query param (for media elements).
    */
   @Get('files/:id/stream')
@@ -202,9 +173,7 @@ export class DriveController {
     @Res() res: Response,
   ) {
     const userPhone = this.getUserPhone(authHeader, queryToken);
-    const { buffer, file } = await this.driveService.streamFile(id, userPhone);
-
-    this.serveBufferWithRange(req, res, buffer, file, false);
+    await this.driveService.streamFile(id, userPhone, req, res, false);
   }
 
   /**
@@ -235,18 +204,11 @@ export class DriveController {
     @Param('id') id: string,
     @Headers('authorization') authHeader: string,
     @Query('token') queryToken: string,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
     const userPhone = this.getUserPhone(authHeader, queryToken);
-    const { buffer, file } = await this.driveService.streamFile(id, userPhone);
-
-    res.set({
-      'Content-Type': 'application/octet-stream',
-      'Content-Length': buffer.length.toString(),
-      'Content-Disposition': `attachment; filename="${encodeURIComponent(file.name)}"`,
-    });
-
-    res.send(buffer);
+    await this.driveService.streamFile(id, userPhone, req, res, true);
   }
 
   /**
@@ -271,9 +233,7 @@ export class DriveController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const { buffer, file } = await this.driveService.streamPublicFile(spoolHash);
-
-    this.serveBufferWithRange(req, res, buffer, file, true);
+    await this.driveService.streamPublicFile(spoolHash, req, res, false);
   }
 
   /**
@@ -282,17 +242,10 @@ export class DriveController {
   @Get('public/download/:spoolHash')
   async downloadPublicFile(
     @Param('spoolHash') spoolHash: string,
+    @Req() req: Request,
     @Res() res: Response,
   ) {
-    const { buffer, file } = await this.driveService.streamPublicFile(spoolHash);
-
-    res.set({
-      'Content-Type': file.mimeType || 'application/octet-stream',
-      'Content-Length': buffer.length.toString(),
-      'Content-Disposition': `attachment; filename="${encodeURIComponent(file.name)}"`,
-    });
-
-    res.send(buffer);
+    await this.driveService.streamPublicFile(spoolHash, req, res, true);
   }
 
   @Patch('files/:id/move')

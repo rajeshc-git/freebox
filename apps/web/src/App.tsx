@@ -148,8 +148,8 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleGlobalKey);
   }, []);
 
-  // Multi-Threaded Parallel Upload Worker Scheduler (Concurrency: 3)
-  const CONCURRENCY_LIMIT = 3;
+  // Multi-Threaded Parallel Upload Worker Scheduler (Concurrency: 2 for 1-core VPS stability)
+  const CONCURRENCY_LIMIT = 2;
 
   useEffect(() => {
     const queuedItems = uploadQueue.filter((item) => item.state === 'queued');
@@ -175,7 +175,7 @@ export const App: React.FC = () => {
           ? {
               ...q,
               state: 'uploading',
-              status: 'Connecting to Telegram...',
+              status: 'Connecting to Server Spool...',
               speedMBs: 0,
             }
           : q
@@ -199,10 +199,13 @@ export const App: React.FC = () => {
               q.id === item.id
                 ? {
                     ...q,
-                    progress,
+                    progress: progress >= 100 ? 99 : progress,
                     speedMBs: Math.round(speedMBs * 10) / 10,
                     etaSeconds,
-                    status: `Uploading to Telegram • ${speedMBs.toFixed(1)} MB/s`,
+                    status:
+                      progress >= 100
+                        ? 'Spooling to Telegram MTProto Cloud...'
+                        : `Transferring to Server • ${speedMBs.toFixed(1)} MB/s`,
                   }
                 : q
             )
@@ -233,7 +236,7 @@ export const App: React.FC = () => {
                 state: 'completed',
                 speedMBs: 0,
                 etaSeconds: 0,
-                status: 'Uploaded to Telegram ✓✓',
+                status: 'Uploaded to Telegram Cloud ✓✓',
               }
             : q
         )

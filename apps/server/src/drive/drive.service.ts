@@ -2,8 +2,9 @@ import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TelegramClientService } from '../telegram/telegram-client.service';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
 import archiver = require('archiver');
-import { Response } from 'express';
+import { Request, Response } from 'express';
 
 @Injectable()
 export class DriveService {
@@ -162,82 +163,102 @@ export class DriveService {
 
   /**
    * Upload a file to Telegram Saved Messages and create a record in the database.
+   * Accepts filePath (for disk-spooled zero-RAM upload) or Buffer.
    */
   async uploadFileToTelegram(
     userPhone: string,
-    fileBuffer: Buffer,
-    fileName: string,
-    mimeType: string,
-    fileSize: number,
+    fileSource:
+      | {
+          filePath?: string;
+          fileBuffer?: Buffer;
+          fileName: string;
+          mimeType: string;
+          fileSize: number;
+        }
+      | Buffer,
+    fileNameParam?: string,
+    mimeTypeParam?: string,
+    fileSizeParam?: number,
     folderId?: string,
   ) {
+    let fileName = '';
+    let mimeType = '';
+    let fileSize = 0;
+    let filePath: string | undefined;
+
+    if (Buffer.isBuffer(fileSource)) {
+      fileName = fileNameParam || 'file';
+      mimeType = mimeTypeParam || 'application/octet-stream';
+      fileSize = fileSizeParam || fileSource.length;
+    } else {
+      fileName = fileSource.fileName;
+      mimeType = fileSource.mimeType;
+      fileSize = fileSource.fileSize;
+      filePath = fileSource.filePath;
+    }
+
     const spoolHash = this.generateSpoolHash(fileName);
     const type = this.detectType(fileName, mimeType);
 
     this.logger.log(`Uploading "${fileName}" (${fileSize} bytes) to Telegram for ${userPhone}...`);
 
-    // Upload to Telegram Saved Messages
-    const message = await this.telegramClient.uploadFile(
-      userPhone,
-      fileBuffer,
-      fileName,
-      mimeType,
-      fileSize,
-    );
-
-    // Extract file metadata from Telegram response
-    const fileInfo = this.telegramClient.extractFileInfo(message);
-
-    // Create file record in database with real Telegram references
-    const file = await this.prisma.file.create({
-      data: {
-        name: fileName,
-        spoolHash,
-        size: fileSize,
+    try {
+      // Upload to Telegram Saved Messages using disk-spooled file
+      const message = await this.telegramClient.uploadFile(
+        userPhone,
+        fileSource,
+        fileName,
         mimeType,
-        type,
-        folderId: folderId || null,
-        telegramMsgId: message.id,
-        telegramFileId: fileInfo?.fileId || null,
-        telegramAccessHash: fileInfo?.accessHash || null,
-        telegramStatus: 'read',
-        storageProvider: 'telegram',
-      },
-    });
+        fileSize,
+      );
 
-    this.logger.log(`File "${fileName}" uploaded successfully. Telegram msgId=${message.id}, DB id=${file.id}`);
+      // Extract file metadata from Telegram response
+      const fileInfo = this.telegramClient.extractFileInfo(message);
 
-    return {
-      ...file,
-      previewUrl: `/api/drive/files/${file.id}/stream`,
-      thumbnailUrl: `/api/drive/files/${file.id}/stream`,
-    };
-  }
+      // Create file record in database with real Telegram references
+      const file = await this.prisma.file.create({
+        data: {
+          name: fileName,
+          spoolHash,
+          size: fileSize,
+          mimeType,
+          type,
+          folderId: folderId || null,
+          telegramMsgId: message.id,
+          telegramFileId: fileInfo?.fileId || null,
+          telegramAccessHash: fileInfo?.accessHash || null,
+          telegramStatus: 'read',
+          storageProvider: 'telegram',
+        },
+      });
 
-  private readonly bufferCache = new Map<string, { buffer: Buffer; file: any; expiresAt: number }>();
+      this.logger.log(`File "${fileName}" uploaded successfully. Telegram msgId=${message.id}, DB id=${file.id}`);
 
-  private setCachedBuffer(key: string, buffer: Buffer, file: any) {
-    if (this.bufferCache.size > 40) {
-      const firstKey = this.bufferCache.keys().next().value;
-      if (firstKey) this.bufferCache.delete(firstKey);
+      return {
+        ...file,
+        previewUrl: `/api/drive/files/${file.id}/stream`,
+        thumbnailUrl: `/api/drive/files/${file.id}/stream`,
+      };
+    } finally {
+      // Automatically clean up temporary disk spool file
+      if (filePath) {
+        fs.promises.unlink(filePath).catch((err) => {
+          this.logger.warn(`Failed to clean up temp upload file "${filePath}": ${err.message}`);
+        });
+      }
     }
-    this.bufferCache.set(key, {
-      buffer,
-      file,
-      expiresAt: Date.now() + 10 * 60 * 1000,
-    });
   }
 
   /**
-   * Stream/download a file from Telegram Saved Messages.
+   * Stream/download a file from Telegram Saved Messages directly to Express HTTP response.
    */
-  async streamFile(fileId: string, userPhone: string): Promise<{ buffer: Buffer; file: any }> {
-    const cacheKey = `file_${fileId}`;
-    const cached = this.bufferCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return { buffer: cached.buffer, file: cached.file };
-    }
-
+  async streamFile(
+    fileId: string,
+    userPhone: string,
+    req: Request,
+    res: Response,
+    isDownload = false,
+  ): Promise<void> {
     const file = await this.prisma.file.findUnique({ where: { id: fileId } });
     if (!file) throw new NotFoundException('File not found');
 
@@ -245,10 +266,12 @@ export class DriveService {
       throw new NotFoundException('File has no Telegram reference. It may have been uploaded before Telegram integration.');
     }
 
-    const buffer = await this.telegramClient.downloadMedia(userPhone, file.telegramMsgId);
-    this.setCachedBuffer(cacheKey, buffer, file);
-
-    return { buffer, file };
+    await this.telegramClient.streamMessageMedia(userPhone, file.telegramMsgId, req, res, {
+      customFileName: file.name,
+      customMimeType: file.mimeType,
+      isDownload,
+      isPublic: false,
+    });
   }
 
   /**
@@ -291,15 +314,14 @@ export class DriveService {
   }
 
   /**
-   * Stream a public file from Telegram without requiring user authentication.
+   * Stream a public file from Telegram directly to Express HTTP response.
    */
-  async streamPublicFile(spoolHash: string): Promise<{ buffer: Buffer; file: any }> {
-    const cacheKey = `spool_${spoolHash}`;
-    const cached = this.bufferCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return { buffer: cached.buffer, file: cached.file };
-    }
-
+  async streamPublicFile(
+    spoolHash: string,
+    req: Request,
+    res: Response,
+    isDownload = false,
+  ): Promise<void> {
     const decoded = decodeURIComponent(spoolHash);
     let file = await this.prisma.file.findUnique({
       where: { spoolHash: decoded },
@@ -329,10 +351,12 @@ export class DriveService {
       throw new NotFoundException('No active storage session available to stream media');
     }
 
-    const buffer = await this.telegramClient.downloadMedia(phone, file.telegramMsgId);
-    this.setCachedBuffer(cacheKey, buffer, file);
-
-    return { buffer, file };
+    await this.telegramClient.streamMessageMedia(phone, file.telegramMsgId, req, res, {
+      customFileName: file.name,
+      customMimeType: file.mimeType,
+      isDownload,
+      isPublic: true,
+    });
   }
 
   async moveFile(id: string, folderId: string | null) {

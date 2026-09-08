@@ -7,8 +7,12 @@ services:
     volumes:
       - redis-data:/data
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 50M
 
-  # NestJS Backend API Service (internal port 5005)
+  # Server API Service (internal port 5005, RAM: ~54MB)
   server:
     build:
       context: .
@@ -16,7 +20,7 @@ services:
     container_name: freebox-server
     environment:
       PORT: 5005
-      DATABASE_URL: "file:./dev.db"
+      DATABASE_URL: "file:/app/data/dev.db"
       REDIS_HOST: redis
       REDIS_PORT: 6379
       JWT_SECRET: "dock_jwt_secret_super_secure_key_2026"
@@ -25,8 +29,12 @@ services:
     depends_on:
       - redis
     volumes:
-      - server-data:/app/apps/server/prisma
+      - server-data:/app/data
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 500M
 
   # Frontend + Nginx reverse proxy (single public port 5004)
   web:
@@ -39,6 +47,10 @@ services:
     depends_on:
       - server
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 100M
 
 volumes:
   redis-data:
