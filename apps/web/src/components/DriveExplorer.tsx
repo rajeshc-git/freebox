@@ -673,9 +673,9 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
             { id: 'video', label: 'Videos', count: metrics?.categories?.videos ?? 0 },
             { id: 'document', label: 'Documents', count: metrics?.categories?.documents ?? 0 },
             { id: 'audio', label: 'Audio', count: metrics?.categories?.audio ?? 0 },
-            { id: 'archive', label: 'Archives', count: metrics?.categories?.archives ?? 0 },
+            { id: 'archive', label: 'Other', count: metrics?.categories?.archives ?? 0 },
             { id: 'live_photo', label: 'Live Photos', count: metrics?.livePhotosCount ?? metrics?.categories?.live_photo ?? livePhotosCount, isLive: true },
-            { id: 'others', label: 'Others', isArchive: true },
+            { id: 'others', label: 'Archived', isArchive: true },
           ].map((cat) => (
             <li
               key={cat.id}
@@ -1550,7 +1550,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
             {/* Top Row on Mobile / Left on Desktop: Breadcrumb path with Select All on Mobile */}
             <div className="explorer-subbar-top">
               {currentCategory === 'others' ? (
-                /* Others Breadcrumb */
+                /* Archived Breadcrumb */
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.88rem', flexWrap: 'nowrap', whiteSpace: 'nowrap', minWidth: 0 }}>
                   <span
                     onClick={() => {
@@ -1584,7 +1584,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    <Archive size={14} /> Others
+                    <Archive size={14} /> Archived
                   </span>
                 </div>
               ) : currentCategory === 'live_photo' ? (
@@ -1794,9 +1794,9 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                   { id: 'video', label: 'Videos' },
                   { id: 'document', label: 'Documents' },
                   { id: 'audio', label: 'Audio' },
-                  { id: 'archive', label: 'Archives' },
+                  { id: 'archive', label: 'Other' },
                   { id: 'live_photo', label: 'Live Photos ✨' },
-                  { id: 'others', label: 'Others 📦' },
+                  { id: 'others', label: 'Archived 📦' },
                 ].map((cat) => (
                   <button
                     key={cat.id}

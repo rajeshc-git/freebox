@@ -380,6 +380,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
 
       {/* Top Header Bar */}
       <div
+        className="archived-header-bar"
         style={{
           padding: '1.1rem 1.75rem',
           background: '#ffffff',
@@ -388,7 +389,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '1rem',
+          gap: '0.85rem',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -491,9 +492,10 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
         </div>
 
         {/* Action Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="archived-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {/* Search box */}
           <div
+            className="archived-search-box"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -709,6 +711,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
       <div
         ref={containerRef}
         onScroll={handleScroll}
+        className="archived-scroll-area"
         style={{
           flex: 1,
           overflowY: 'auto',
@@ -870,6 +873,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                 {filteredChats.map((chat) => (
                   <div
                     key={chat.id}
+                    className="archived-chat-card"
                     onClick={() => {
                       sfx.playClick();
                       setSelectedChat(chat);
