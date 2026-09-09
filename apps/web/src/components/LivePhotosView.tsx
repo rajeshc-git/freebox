@@ -1013,7 +1013,7 @@ const LivePhotoCard: React.FC<{
           WebkitTouchCallout: 'none',
         }}
       >
-        {/* Still Photo Layer */}
+        {/* Still Photo Layer - Always present underneath for 0ms instant display */}
         <SmartImage
           src={api.getFileStreamUrl(pair.photoFile.id)}
           alt={pair.baseName}
@@ -1022,14 +1022,14 @@ const LivePhotoCard: React.FC<{
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            display: isPlaying ? 'none' : 'block',
+            display: 'block',
             pointerEvents: 'none',
             userSelect: 'none',
             WebkitUserSelect: 'none',
           }}
         />
 
-        {/* Companion Video Layer */}
+        {/* Companion Video Layer - Seamlessly transitions over image */}
         <video
           ref={videoRef}
           src={api.getFileStreamUrl(pair.videoFile.id)}
@@ -1043,10 +1043,13 @@ const LivePhotoCard: React.FC<{
           onProgress={handleProgress}
           onTimeUpdate={handleTimeUpdate}
           style={{
+            position: 'absolute',
+            inset: 0,
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            display: isPlaying ? 'block' : 'none',
+            opacity: isPlaying ? 1 : 0,
+            transition: 'opacity 0.15s ease',
             pointerEvents: 'none',
             userSelect: 'none',
             WebkitUserSelect: 'none',
@@ -1623,7 +1626,7 @@ const LivePhotoLightbox: React.FC<{
             maxWidth: '100%',
             maxHeight: '78vh',
             objectFit: 'contain',
-            display: isPlaying ? 'none' : 'block',
+            display: 'block',
             pointerEvents: 'none',
             userSelect: 'none',
             WebkitUserSelect: 'none',
@@ -1645,10 +1648,13 @@ const LivePhotoLightbox: React.FC<{
           onProgress={handleProgress}
           onTimeUpdate={handleTimeUpdate}
           style={{
-            maxWidth: '100%',
-            maxHeight: '78vh',
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
             objectFit: 'contain',
-            display: isPlaying ? 'block' : 'none',
+            opacity: isPlaying ? 1 : 0,
+            transition: 'opacity 0.15s ease',
             pointerEvents: 'none',
             userSelect: 'none',
             WebkitUserSelect: 'none',
@@ -1693,32 +1699,6 @@ const LivePhotoLightbox: React.FC<{
             }}
           />
         </div>
-
-        {/* Live Indicator overlay when active */}
-        {isPressHolding && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '1rem',
-              left: '1rem',
-              background: 'rgba(0,0,0,0.75)',
-              backdropFilter: 'blur(8px)',
-              color: '#38bdf8',
-              padding: '0.35rem 0.75rem',
-              borderRadius: 9999,
-              fontSize: '0.75rem',
-              fontWeight: 800,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-              animation: 'pulse 1s infinite',
-            }}
-          >
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#38bdf8' }} />
-            PLAYING LIVE
-          </div>
-        )}
       </div>
 
       {/* Minimal Footer Info Hint */}
