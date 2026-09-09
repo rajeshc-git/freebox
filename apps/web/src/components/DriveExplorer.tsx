@@ -1131,36 +1131,40 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
               <Menu size={18} />
             </button>
 
-            {/* Global Search Bar */}
-            <div
-              style={{
-                position: 'relative',
-                flex: 1,
-                minWidth: 0,
-                display: 'flex',
-                alignItems: 'center',
-              }}
-            >
-              <Search size={16} color="var(--text-light)" style={{ position: 'absolute', left: '0.85rem', flexShrink: 0 }} />
-              <input
-                type="text"
-                placeholder="Search files or Telegram spool hash... (⌘K)"
-                value={searchQuery}
-                onChange={(e) => onSearchChange(e.target.value)}
-                className="global-search-input"
+            {/* Global Search Bar (Hidden when inside Live Photos or Archived) */}
+            {currentCategory !== 'live_photo' && currentCategory !== 'others' ? (
+              <div
                 style={{
-                  width: '100%',
+                  position: 'relative',
+                  flex: 1,
                   minWidth: 0,
-                  background: '#f1f5f9',
-                  border: '1px solid transparent',
-                  borderRadius: 9999,
-                  padding: '0.55rem 1rem 0.55rem 2.4rem',
-                  fontSize: '0.88rem',
-                  outline: 'none',
-                  transition: 'all 0.18s ease',
+                  display: 'flex',
+                  alignItems: 'center',
                 }}
-              />
-            </div>
+              >
+                <Search size={16} color="var(--text-light)" style={{ position: 'absolute', left: '0.85rem', flexShrink: 0 }} />
+                <input
+                  type="text"
+                  placeholder="Search files or Telegram spool hash... (⌘K)"
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  className="global-search-input"
+                  style={{
+                    width: '100%',
+                    minWidth: 0,
+                    background: '#f1f5f9',
+                    border: '1px solid transparent',
+                    borderRadius: 9999,
+                    padding: '0.55rem 1rem 0.55rem 2.4rem',
+                    fontSize: '0.88rem',
+                    outline: 'none',
+                    transition: 'all 0.18s ease',
+                  }}
+                />
+              </div>
+            ) : (
+              <div style={{ flex: 1 }} />
+            )}
           </div>
 
           {/* Action Buttons Toolbar */}

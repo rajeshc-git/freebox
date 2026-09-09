@@ -5,6 +5,7 @@ import {
   Download,
   Share2,
   Maximize2,
+  Minimize2,
   Volume2,
   VolumeX,
   Play,
@@ -57,8 +58,24 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
   const [pairs, setPairs] = useState<LivePhotoPair[]>([]);
   const [selectedPair, setSelectedPair] = useState<LivePhotoPair | null>(null);
   const [pairToDelete, setPairToDelete] = useState<LivePhotoPair | null>(null);
+  const [isFullscreenStudio, setIsFullscreenStudio] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Keyboard navigation / Escape handler for Fullscreen Studio
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (selectedPair !== null) {
+          setSelectedPair(null);
+        } else if (isFullscreenStudio) {
+          setIsFullscreenStudio(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedPair, isFullscreenStudio]);
 
   // Automatic Pair Matching Engine (.HEIC / .JPG + .MOV / .MP4 with identical base names)
   useEffect(() => {
@@ -135,6 +152,7 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
 
   return (
     <div
+      className={`live-photos-container ${isFullscreenStudio ? 'live-photos-view-fullscreen' : ''}`}
       style={{
         flex: 1,
         overflowY: 'auto',
@@ -142,6 +160,15 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
         background: '#f8fafc',
         display: 'flex',
         flexDirection: 'column',
+        ...(isFullscreenStudio
+          ? {
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              width: '100vw',
+              height: '100dvh',
+            }
+          : {}),
       }}
     >
       {/* Hidden Multi-file Input */}
@@ -194,31 +221,59 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
             </div>
           </div>
 
-          {/* Quick Action: Upload */}
-          <button
-            onClick={() => {
-              sfx.playClick();
-              fileInputRef.current?.click();
-            }}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.45rem',
-              background: 'var(--tg-blue)',
-              color: '#ffffff',
-              border: 'none',
-              padding: '0.6rem 1.15rem',
-              borderRadius: 9999,
-              fontSize: '0.84rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow: '0 2px 10px rgba(36,129,204,0.25)',
-              flexShrink: 0,
-            }}
-          >
-            <Upload size={15} />
-            <span className="hide-text-on-mobile">Upload Live Photo</span>
-          </button>
+          {/* Quick Actions: Fullscreen & Upload */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+            {/* Fullscreen Studio Toggle */}
+            <button
+              onClick={() => {
+                sfx.playClick();
+                setIsFullscreenStudio((prev) => !prev);
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                border: isFullscreenStudio ? '1.5px solid #2481cc' : '1px solid #e2e8f0',
+                background: isFullscreenStudio ? '#eef6fd' : '#ffffff',
+                color: isFullscreenStudio ? '#2481cc' : '#64748b',
+                cursor: 'pointer',
+                flexShrink: 0,
+                boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                transition: 'all 0.15s ease',
+              }}
+              title={isFullscreenStudio ? 'Exit Fullscreen Studio' : 'Fullscreen Studio View (Max Viewport)'}
+            >
+              {isFullscreenStudio ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+
+            <button
+              onClick={() => {
+                sfx.playClick();
+                fileInputRef.current?.click();
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                background: 'var(--tg-blue)',
+                color: '#ffffff',
+                border: 'none',
+                padding: '0.6rem 1.15rem',
+                borderRadius: 9999,
+                fontSize: '0.84rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 2px 10px rgba(36,129,204,0.25)',
+                flexShrink: 0,
+              }}
+            >
+              <Upload size={15} />
+              <span className="hide-text-on-mobile">Upload Live Photo</span>
+            </button>
+          </div>
         </div>
 
         {/* Tab Switcher */}
