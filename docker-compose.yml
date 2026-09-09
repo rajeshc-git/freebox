@@ -4,7 +4,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: freebox-redis
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --maxmemory 30mb --maxmemory-policy volatile-lru
     volumes:
       - redis-data:/data
     restart: unless-stopped
