@@ -426,27 +426,22 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <div
                 style={{
-                  width: '42px',
-                  height: '42px',
-                  borderRadius: '12px',
+                  width: '38px',
+                  height: '38px',
+                  borderRadius: '10px',
                   background: 'linear-gradient(135deg, #2481cc 0%, #1765a3 100%)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: '#ffffff',
-                  boxShadow: '0 4px 12px rgba(36, 129, 204, 0.25)',
+                  boxShadow: '0 2px 8px rgba(36, 129, 204, 0.25)',
                 }}
               >
-                <Archive size={22} />
+                <Archive size={20} />
               </div>
-              <div>
-                <h1 style={{ margin: 0, fontSize: '1.3rem', fontWeight: 700, color: '#0f172a' }}>
-                  Archived Chats & Channels
-                </h1>
-                <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b' }}>
-                  Browse & stream all media, files and voice notes from Telegram
-                </p>
-              </div>
+              <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#0f172a' }}>
+                Archived
+              </h1>
             </div>
           )}
 

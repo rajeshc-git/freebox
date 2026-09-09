@@ -1548,8 +1548,8 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
             {/* Top Row on Mobile / Left on Desktop: Breadcrumb path with Select All on Mobile */}
             <div className="explorer-subbar-top">
               {currentCategory === 'others' ? (
-                /* Others / Archived Chats Breadcrumb */
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.88rem', flexWrap: 'wrap', minWidth: 0 }}>
+                /* Others Breadcrumb */
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.88rem', flexWrap: 'nowrap', whiteSpace: 'nowrap', minWidth: 0 }}>
                   <span
                     onClick={() => {
                       sfx.playClick();
@@ -1563,6 +1563,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                       padding: '0.2rem 0.55rem',
                       borderRadius: 8,
                       transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     My Files
@@ -1578,14 +1579,15 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 4,
+                      whiteSpace: 'nowrap',
                     }}
                   >
-                    <Archive size={14} /> Others (Archived Chats)
+                    <Archive size={14} /> Others
                   </span>
                 </div>
               ) : currentCategory === 'live_photo' ? (
                 /* Live Photos Breadcrumb */
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.88rem', flexWrap: 'wrap', minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '0.88rem', flexWrap: 'nowrap', whiteSpace: 'nowrap', minWidth: 0 }}>
                   <span
                     onClick={() => {
                       sfx.playClick();
@@ -1599,6 +1601,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                       padding: '0.2rem 0.55rem',
                       borderRadius: 8,
                       transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     My Files
@@ -1614,6 +1617,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                       display: 'inline-flex',
                       alignItems: 'center',
                       gap: 4,
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     <Sparkles size={14} /> Live Photos ✨
