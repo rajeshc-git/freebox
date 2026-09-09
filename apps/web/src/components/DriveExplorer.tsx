@@ -1734,10 +1734,41 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                 </div>
               )}
 
-              {/* Select All on Mobile (Top Right) */}
-              <div className="hide-on-desktop">
+              {/* Select All on Mobile (Top Right) - Only shown in regular file views, not Live Photos or Archived */}
+              {currentCategory !== 'live_photo' && currentCategory !== 'others' && (
+                <div className="hide-on-desktop">
+                  <button
+                    onClick={selectAll}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      background: 'transparent',
+                      border: 'none',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {selectedIds.length === displayedFiles.length && displayedFiles.length > 0 ? (
+                      <CheckSquare size={16} color="var(--tg-blue)" />
+                    ) : (
+                      <Square size={16} />
+                    )}
+                    <span>Select All</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Desktop Right Strip: Select All (Desktop) + Category Scroll (Hidden on mobile since hamburger drawer has all categories) */}
+            <div className="explorer-subbar-right hide-on-mobile">
+              {currentCategory !== 'live_photo' && currentCategory !== 'others' && (
                 <button
                   onClick={selectAll}
+                  className="hide-on-mobile"
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -1751,41 +1782,14 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                     flexShrink: 0,
                   }}
                 >
-                  {(currentCategory === 'live_photo' ? isAllLivePhotosSelected : selectedIds.length === displayedFiles.length && displayedFiles.length > 0) ? (
+                  {selectedIds.length === displayedFiles.length && displayedFiles.length > 0 ? (
                     <CheckSquare size={16} color="var(--tg-blue)" />
                   ) : (
                     <Square size={16} />
                   )}
                   <span>Select All</span>
                 </button>
-              </div>
-            </div>
-
-            {/* Desktop Right Strip: Select All (Desktop) + Category Scroll (Hidden on mobile since hamburger drawer has all categories) */}
-            <div className="explorer-subbar-right hide-on-mobile">
-              <button
-                onClick={selectAll}
-                className="hide-on-mobile"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  background: 'transparent',
-                  border: 'none',
-                  fontSize: '0.8rem',
-                  fontWeight: 600,
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  flexShrink: 0,
-                }}
-              >
-                {(currentCategory === 'live_photo' ? isAllLivePhotosSelected : selectedIds.length === displayedFiles.length && displayedFiles.length > 0) ? (
-                  <CheckSquare size={16} color="var(--tg-blue)" />
-                ) : (
-                  <Square size={16} />
-                )}
-                <span>Select All</span>
-              </button>
+              )}
 
               <div className="explorer-category-scroll">
                 {[
@@ -1831,8 +1835,6 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           <LivePhotosView
             files={files}
             loading={loading}
-            selectedIds={selectedIds}
-            onToggleSelectPair={toggleSelectLivePhotoPair}
             onUploadPair={(fls) => onDropFolderItems(fls.map((f) => ({ file: f, relativePath: f.name })))}
             onPreviewFile={onPreviewFile}
             onShareFile={onShareFile}

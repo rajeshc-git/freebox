@@ -40,8 +40,6 @@ export interface LivePhotoPair {
 interface LivePhotosViewProps {
   files: DriveFile[];
   loading?: boolean;
-  selectedIds?: string[];
-  onToggleSelectPair?: (pair: LivePhotoPair) => void;
   onUploadPair: (files: File[]) => void;
   onPreviewFile?: (file: DriveFile) => void;
   onShareFile?: (file: DriveFile) => void;
@@ -51,8 +49,6 @@ interface LivePhotosViewProps {
 export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
   files,
   loading = false,
-  selectedIds = [],
-  onToggleSelectPair,
   onUploadPair,
   onShareFile,
   onDeletePair,
@@ -420,20 +416,15 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
                 gap: '1.25rem',
               }}
             >
-              {pairs.map((pair) => {
-                const isSelected = selectedIds.includes(pair.photoFile.id) || selectedIds.includes(pair.videoFile.id);
-                return (
-                  <LivePhotoCard
-                    key={pair.id}
-                    pair={pair}
-                    isSelected={isSelected}
-                    onToggleSelect={() => onToggleSelectPair?.(pair)}
-                    onOpenLightbox={() => setSelectedPair(pair)}
-                    onShare={() => onShareFile?.(pair.photoFile)}
-                    onDelete={() => setPairToDelete(pair)}
-                  />
-                );
-              })}
+              {pairs.map((pair) => (
+                <LivePhotoCard
+                  key={pair.id}
+                  pair={pair}
+                  onOpenLightbox={() => setSelectedPair(pair)}
+                  onShare={() => onShareFile?.(pair.photoFile)}
+                  onDelete={() => setPairToDelete(pair)}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -816,12 +807,10 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
 // Subcomponent: Live Photo Grid Card (Big on Desktop, Clean on Mobile)
 const LivePhotoCard: React.FC<{
   pair: LivePhotoPair;
-  isSelected?: boolean;
-  onToggleSelect?: () => void;
   onOpenLightbox: () => void;
   onShare: () => void;
   onDelete: () => void;
-}> = ({ pair, isSelected = false, onToggleSelect, onOpenLightbox, onShare, onDelete }) => {
+}> = ({ pair, onOpenLightbox, onShare, onDelete }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPressHolding, setIsPressHolding] = useState(false);
   const [isBuffering, setIsBuffering] = useState(false);
@@ -992,10 +981,8 @@ const LivePhotoCard: React.FC<{
         background: '#ffffff',
         borderRadius: 18,
         overflow: 'hidden',
-        border: isSelected ? '2px solid var(--tg-blue)' : isPressHolding ? '2px solid #38bdf8' : '1px solid #e2e8f0',
-        boxShadow: isSelected
-          ? '0 0 0 3px var(--tg-blue-glow)'
-          : isPressHolding
+        border: isPressHolding ? '2px solid #38bdf8' : '1px solid #e2e8f0',
+        boxShadow: isPressHolding
           ? '0 0 0 3px rgba(56, 189, 248, 0.4), 0 16px 36px rgba(36,129,204,0.3)'
           : isPlaying
           ? '0 12px 32px rgba(36,129,204,0.22)'
@@ -1184,7 +1171,7 @@ const LivePhotoCard: React.FC<{
           LIVE
         </div>
 
-        {/* Top-Right Quick Action Buttons (Checkbox, Full Screen & Delete) */}
+        {/* Top-Right Quick Action Buttons (Full Screen & Delete) */}
         <div
           style={{
             position: 'absolute',
@@ -1197,29 +1184,6 @@ const LivePhotoCard: React.FC<{
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Checkbox button */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              sfx.playClick();
-              onToggleSelect?.();
-            }}
-            title={isSelected ? 'Deselect Live Photo' : 'Select Live Photo'}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer',
-              color: isSelected ? 'var(--tg-blue)' : '#94a3b8',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            {isSelected ? <CheckSquare size={18} color="var(--tg-blue)" /> : <Square size={18} color="#94a3b8" />}
-          </button>
-
           <button
             onClick={(e) => {
               e.stopPropagation();
