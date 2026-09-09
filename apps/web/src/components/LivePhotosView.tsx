@@ -39,6 +39,7 @@ export interface LivePhotoPair {
 
 interface LivePhotosViewProps {
   files: DriveFile[];
+  loading?: boolean;
   selectedIds?: string[];
   onToggleSelectPair?: (pair: LivePhotoPair) => void;
   onUploadPair: (files: File[]) => void;
@@ -49,6 +50,7 @@ interface LivePhotosViewProps {
 
 export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
   files,
+  loading = false,
   selectedIds = [],
   onToggleSelectPair,
   onUploadPair,
@@ -294,7 +296,38 @@ export const LivePhotosView: React.FC<LivePhotosViewProps> = ({
       {/* TAB 1: Live Photos Gallery */}
       {activeTab === 'gallery' && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          {pairs.length === 0 ? (
+          {loading ? (
+            /* Loading Skeleton Grid */
+            <div
+              className="live-photos-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
+                gap: '1.25rem',
+              }}
+            >
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <div
+                  key={n}
+                  style={{
+                    background: '#fff',
+                    borderRadius: 20,
+                    border: '1px solid #e2e8f0',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                  }}
+                >
+                  <div style={{ height: 260 }} className="skeleton-box" />
+                  <div style={{ padding: '0.85rem 1rem' }}>
+                    <div style={{ height: 14, width: '70%', marginBottom: 8 }} className="skeleton-box" />
+                    <div style={{ height: 10, width: '40%' }} className="skeleton-box" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : pairs.length === 0 ? (
             /* Empty State */
             <div
               style={{

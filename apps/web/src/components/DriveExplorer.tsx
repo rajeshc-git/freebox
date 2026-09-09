@@ -55,6 +55,7 @@ import { SmartImage } from './SmartImage';
 
 interface DriveExplorerProps {
   user: User | null;
+  loading?: boolean;
   folders: Folder[];
   files: DriveFile[];
   metrics: StorageMetrics | null;
@@ -93,6 +94,7 @@ interface DriveExplorerProps {
 
 export const DriveExplorer: React.FC<DriveExplorerProps> = ({
   user,
+  loading = false,
   folders,
   files,
   metrics,
@@ -1828,6 +1830,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
         ) : currentCategory === 'live_photo' ? (
           <LivePhotosView
             files={files}
+            loading={loading}
             selectedIds={selectedIds}
             onToggleSelectPair={toggleSelectLivePhotoPair}
             onUploadPair={(fls) => onDropFolderItems(fls.map((f) => ({ file: f, relativePath: f.name })))}
@@ -1890,8 +1893,107 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
             </div>
           )}
 
-          {/* Folders Section in Grid View */}
-          {currentFolders.length > 0 && currentCategory === 'all' && !searchQuery && currentNav !== 'trash' && viewMode === 'grid' && (
+          {/* Skeleton loading state while changing folders, categories, or navigating */}
+          {loading ? (
+            <div style={{ width: '100%' }}>
+              {/* Folders Skeleton (if in 'all' category) */}
+              {currentCategory === 'all' && !searchQuery && currentNav !== 'trash' && (
+                <div style={{ marginBottom: '2rem' }}>
+                  <div style={{ height: 16, width: 110, marginBottom: '1rem' }} className="skeleton-box" />
+                  <div className="drive-folders-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
+                    {[1, 2, 3, 4].map((n) => (
+                      <div
+                        key={n}
+                        style={{
+                          height: 96,
+                          borderRadius: 16,
+                          background: '#fff',
+                          border: '1px solid var(--border-subtle)',
+                          padding: '1rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          boxShadow: 'var(--shadow-sm)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          <div style={{ width: 42, height: 42, borderRadius: 12 }} className="skeleton-box" />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ height: 14, width: '70%', marginBottom: 6 }} className="skeleton-box" />
+                            <div style={{ height: 10, width: '40%' }} className="skeleton-box" />
+                          </div>
+                        </div>
+                        <div style={{ height: 10, width: '30%', marginTop: 8 }} className="skeleton-box" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Files Section Skeleton */}
+              <div>
+                <div style={{ height: 16, width: 90, marginBottom: '1rem' }} className="skeleton-box" />
+                {viewMode === 'grid' ? (
+                  <div className="drive-files-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.25rem' }}>
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
+                      <div
+                        key={n}
+                        style={{
+                          background: '#fff',
+                          border: '1px solid var(--border-subtle)',
+                          borderRadius: 16,
+                          overflow: 'hidden',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          boxShadow: 'var(--shadow-sm)',
+                        }}
+                      >
+                        <div style={{ height: 140 }} className="skeleton-box" />
+                        <div style={{ padding: '0.85rem' }}>
+                          <div style={{ height: 14, width: '80%', marginBottom: 8 }} className="skeleton-box" />
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ height: 10, width: '35%' }} className="skeleton-box" />
+                            <div style={{ height: 10, width: '25%' }} className="skeleton-box" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    className="list-table-container"
+                    style={{
+                      background: '#fff',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 16,
+                      padding: '1rem',
+                    }}
+                  >
+                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                      <div
+                        key={n}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '1rem',
+                          padding: '0.85rem 0.5rem',
+                          borderBottom: n !== 6 ? '1px solid var(--border-subtle)' : 'none',
+                        }}
+                      >
+                        <div style={{ width: 24, height: 24, borderRadius: 6 }} className="skeleton-box" />
+                        <div style={{ flex: 2, height: 14 }} className="skeleton-box" />
+                        <div style={{ flex: 1, height: 14 }} className="skeleton-box hide-on-mobile" />
+                        <div style={{ width: 60, height: 14 }} className="skeleton-box" />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Folders Section in Grid View */}
+              {currentFolders.length > 0 && currentCategory === 'all' && !searchQuery && currentNav !== 'trash' && viewMode === 'grid' && (
             <div style={{ marginBottom: '2rem' }}>
               <div
                 style={{
@@ -2640,6 +2742,8 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
               </div>
             )}
           </div>
+          </>
+        )}
 
         {/* Floating Batch Actions Bar (100% Light Theme with Smooth Spring Enter/Exit Animation) */}
         {(() => {

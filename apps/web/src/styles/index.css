@@ -1136,3 +1136,24 @@ body {
     align-items: center;
   }
 }
+
+/* Sleek hardware-accelerated skeleton animation */
+@keyframes skeletonPulse {
+  0% {
+    background-color: #f1f5f9;
+    opacity: 0.9;
+  }
+  50% {
+    background-color: #e2e8f0;
+    opacity: 0.45;
+  }
+  100% {
+    background-color: #f1f5f9;
+    opacity: 0.9;
+  }
+}
+
+.skeleton-box {
+  animation: skeletonPulse 1.4s ease-in-out infinite;
+  border-radius: 8px;
+}

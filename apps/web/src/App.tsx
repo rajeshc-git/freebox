@@ -92,6 +92,9 @@ export const App: React.FC = () => {
   const [fileToDeleteFromPreview, setFileToDeleteFromPreview] = useState<DriveFile | null>(null);
   const [isLogoutOpen, setIsLogoutOpen] = useState(false);
 
+  const [isLoadingDrive, setIsLoadingDrive] = useState(true);
+  const driveReqCount = useRef(0);
+
   // References
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
@@ -109,24 +112,32 @@ export const App: React.FC = () => {
     searchQueryRef.current = searchQuery;
   }, [currentFolderId, currentNav, currentCategory, searchQuery]);
 
-  // Load Data
+  // Load Data with race-condition guard
   const loadDriveData = async (
     folderId = currentFolderIdRef.current,
     category = currentCategoryRef.current,
     search = searchQueryRef.current,
     nav = currentNavRef.current
   ) => {
+    const reqId = ++driveReqCount.current;
+    setIsLoadingDrive(true);
     try {
       const [fetchedFolders, fetchedFiles, fetchedMetrics] = await Promise.all([
         api.getFolders(),
         api.getFiles({ folderId, category, search, nav }),
         api.getStorageMetrics(),
       ]);
-      setFolders(fetchedFolders);
-      setFiles(fetchedFiles);
-      setMetrics(fetchedMetrics);
+      if (reqId === driveReqCount.current) {
+        setFolders(fetchedFolders);
+        setFiles(fetchedFiles);
+        setMetrics(fetchedMetrics);
+      }
     } catch (err) {
       console.error('Failed to load drive data', err);
+    } finally {
+      if (reqId === driveReqCount.current) {
+        setIsLoadingDrive(false);
+      }
     }
   };
 
@@ -676,6 +687,7 @@ export const App: React.FC = () => {
         <div style={{ display: 'flex', width: '100vw', height: '100vh', overflow: 'hidden' }}>
           <DriveExplorer
             user={user}
+            loading={isLoadingDrive}
             folders={folders}
             files={files}
             metrics={metrics}
