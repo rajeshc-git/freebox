@@ -964,6 +964,27 @@ body {
   background: #94a3b8;
 }
 
+/* Fullscreen Immersive Archived Media Explorer */
+.archived-chats-container.archived-view-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  background: var(--bg-main, #f8fafc) !important;
+}
+.archived-chats-container.archived-view-fullscreen .archived-header-bar {
+  padding: 0.65rem 1.25rem !important;
+  background: #ffffff !important;
+}
+.archived-chats-container.archived-view-fullscreen .archived-tabs-bar {
+  padding: 0.45rem 1.25rem !important;
+}
+.archived-chats-container.archived-view-fullscreen .archived-scroll-area {
+  padding: 0.75rem 1.25rem !important;
+  flex: 1 !important;
+}
+
 @media (max-width: 768px) {
   .landing-footer-links {
     display: none !important;
@@ -1048,14 +1069,17 @@ body {
   /* 2-column grid on mobile for files, folders, live photos, and archived media */
   .main-scroll-area,
   .archived-scroll-area {
-    padding: 0.75rem !important;
+    padding: 0.65rem 0.75rem !important;
   }
   .drive-folders-grid,
   .drive-files-grid,
   .live-photos-grid,
   .archived-media-grid {
     grid-template-columns: repeat(2, 1fr) !important;
-    gap: 0.65rem !important;
+    gap: 0.55rem !important;
+  }
+  .archived-media-preview-box {
+    height: 115px !important;
   }
 
   /* Single-column full-width cards on mobile for archived chats (no horizontal cut-off) */
@@ -1068,15 +1092,44 @@ body {
     border-radius: 14px !important;
   }
   .archived-header-bar {
-    padding: 0.85rem 1rem !important;
-    gap: 0.65rem !important;
+    padding: 0.65rem 0.75rem !important;
+    gap: 0.5rem !important;
+  }
+  .archived-header-bar.in-chat {
+    padding: 0.45rem 0.65rem !important;
+    flex-wrap: nowrap !important;
+  }
+  .archived-header-bar.in-chat .archived-chat-title-text {
+    max-width: 140px !important;
+    font-size: 0.95rem !important;
+  }
+  .archived-header-bar.in-chat .archived-chat-subtitle-text {
+    font-size: 0.7rem !important;
+  }
+  .archived-header-bar.in-chat .archived-header-actions {
+    width: auto !important;
+    gap: 0.35rem !important;
+  }
+  .archived-header-bar.in-chat .archived-search-box {
+    width: 100px !important;
+    padding: 0.35rem 0.5rem !important;
+  }
+  .archived-tabs-bar {
+    padding: 0.35rem 0.65rem !important;
+  }
+  .archived-tab-btn {
+    padding: 0.32rem 0.75rem !important;
+    font-size: 0.78rem !important;
+  }
+  .archived-back-text {
+    display: none !important;
   }
   .archived-header-actions {
-    width: 100% !important;
+    width: 100%;
   }
   .archived-search-box {
-    width: 100% !important;
-    flex: 1 !important;
+    width: 100%;
+    flex: 1;
   }
   .drive-folder-card {
     padding: 0.65rem !important;

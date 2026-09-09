@@ -24,6 +24,8 @@ import {
   Loader2,
   Mic,
   Volume2,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { TelegramArchivedChat, TelegramChatMedia } from '../types';
 import { api } from '../services/api';
@@ -31,6 +33,7 @@ import { sfx } from '../services/sound';
 
 interface ArchivedChatsViewProps {
   onBackToDrive?: () => void;
+  onChatOpenChange?: (isOpen: boolean) => void;
 }
 
 type TelegramTab = 'media' | 'files' | 'voice';
@@ -43,7 +46,7 @@ interface ChatStats {
   voice: number;
 }
 
-export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
+export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = ({ onChatOpenChange }) => {
   // State
   const [chats, setChats] = useState<TelegramArchivedChat[]>([]);
   const [selectedChat, setSelectedChat] = useState<TelegramArchivedChat | null>(null);
@@ -51,6 +54,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
   const [mediaSearch, setMediaSearch] = useState('');
   const [activeTab, setActiveTab] = useState<TelegramTab>('media');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isFullscreenMedia, setIsFullscreenMedia] = useState(false);
 
   const [chatStats, setChatStats] = useState<ChatStats | null>(null);
 
@@ -330,13 +334,19 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
     return `${mediaList.length} items`;
   }, [chatStats, activeTab, mediaList.length]);
 
-  // Keyboard navigation for media preview
+  // Keyboard navigation for media preview & fullscreen
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (activeMediaIndex === null) return;
       if (e.key === 'Escape') {
-        setActiveMediaIndex(null);
-      } else if (e.key === 'ArrowLeft') {
+        if (activeMediaIndex !== null) {
+          setActiveMediaIndex(null);
+        } else if (isFullscreenMedia) {
+          setIsFullscreenMedia(false);
+        }
+        return;
+      }
+      if (activeMediaIndex === null) return;
+      if (e.key === 'ArrowLeft') {
         setActiveMediaIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : prev));
       } else if (e.key === 'ArrowRight') {
         setActiveMediaIndex((prev) =>
@@ -346,7 +356,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeMediaIndex, filteredMedia.length]);
+  }, [activeMediaIndex, filteredMedia.length, isFullscreenMedia]);
 
   const activeMedia =
     activeMediaIndex !== null && filteredMedia[activeMediaIndex]
@@ -367,12 +377,22 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
 
   return (
     <div
+      className={`archived-chats-container ${isFullscreenMedia ? 'archived-view-fullscreen' : ''}`}
       style={{
         display: 'flex',
         flexDirection: 'column',
         height: '100%',
         width: '100%',
         background: 'var(--bg-main, #f8fafc)',
+        ...(isFullscreenMedia
+          ? {
+              position: 'fixed',
+              inset: 0,
+              zIndex: 9999,
+              width: '100vw',
+              height: '100dvh',
+            }
+          : {}),
       }}
     >
       {/* Hidden Global Audio Element for Background/Inline Playback */}
@@ -380,7 +400,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
 
       {/* Top Header Bar */}
       <div
-        className="archived-header-bar"
+        className={`archived-header-bar ${selectedChat ? 'in-chat' : ''}`}
         style={{
           padding: '1.1rem 1.75rem',
           background: '#ffffff',
@@ -392,12 +412,14 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
           gap: '0.85rem',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <div className="archived-chat-header-left" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: '1 1 auto' }}>
           {selectedChat ? (
             <button
               onClick={() => {
                 sfx.playClick();
                 setSelectedChat(null);
+                setIsFullscreenMedia(false);
+                onChatOpenChange?.(false);
                 setActiveMediaIndex(null);
                 setMediaList([]);
                 setChatStats(null);
@@ -416,12 +438,14 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                 fontSize: '0.85rem',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
+                flexShrink: 0,
               }}
               onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
               onMouseLeave={(e) => (e.currentTarget.style.background = '#ffffff')}
+              title="Back to archived chats"
             >
               <ArrowLeft size={16} />
-              <span>Back</span>
+              <span className="archived-back-text">Back</span>
             </button>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -436,6 +460,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   justifyContent: 'center',
                   color: '#ffffff',
                   boxShadow: '0 2px 8px rgba(36, 129, 204, 0.25)',
+                  flexShrink: 0,
                 }}
               >
                 <Archive size={20} />
@@ -447,8 +472,9 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
           )}
 
           {selectedChat && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <div className="archived-chat-info-block" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0, overflow: 'hidden' }}>
               <div
+                className="archived-chat-avatar"
                 style={{
                   width: '38px',
                   height: '38px',
@@ -462,6 +488,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: '#ffffff',
+                  flexShrink: 0,
                 }}
               >
                 {selectedChat.isChannel ? (
@@ -472,16 +499,20 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                   <UserIcon size={18} />
                 )}
               </div>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a' }}>
+              <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                <h2 className="archived-chat-title-text" style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {selectedChat.title}
                 </h2>
                 <div
+                  className="archived-chat-subtitle-text"
                   style={{
                     fontSize: '0.76rem',
                     color: '#64748b',
                     fontWeight: 600,
                     marginTop: 1,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                   }}
                 >
                   {statsSubtitle}
@@ -492,7 +523,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
         </div>
 
         {/* Action Controls */}
-        <div className="archived-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div className="archived-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
           {/* Search box */}
           <div
             className="archived-search-box"
@@ -543,6 +574,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
           {/* Grid / List switcher (when inside a chat) */}
           {selectedChat && (
             <div
+              className="archived-view-switcher"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -592,6 +624,34 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
             </div>
           )}
 
+          {/* Fullscreen / Maximize Media View Toggle (Maximizes vertical screen height for 2x2 grid) */}
+          {selectedChat && (
+            <button
+              onClick={() => {
+                sfx.playClick();
+                setIsFullscreenMedia((prev) => !prev);
+              }}
+              className="archived-fullscreen-toggle-btn"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                border: isFullscreenMedia ? '1.5px solid #2481cc' : '1px solid #e2e8f0',
+                background: isFullscreenMedia ? '#eef6fd' : '#ffffff',
+                color: isFullscreenMedia ? '#2481cc' : '#64748b',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                flexShrink: 0,
+              }}
+              title={isFullscreenMedia ? 'Exit Fullscreen Media' : 'Fullscreen Media View (Max Viewport)'}
+            >
+              {isFullscreenMedia ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+            </button>
+          )}
+
           {/* Refresh button */}
           <button
             onClick={() => {
@@ -616,6 +676,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
               color: '#64748b',
               cursor: 'pointer',
               transition: 'all 0.2s ease',
+              flexShrink: 0,
             }}
             title="Refresh"
           >
@@ -632,6 +693,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
       {/* Official Telegram Pill Tabs: Media, Files, Voice */}
       {selectedChat && (
         <div
+          className="archived-tabs-bar"
           style={{
             padding: '0.75rem 1.75rem',
             background: '#ffffff',
@@ -642,6 +704,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
           }}
         >
           <div
+            className="archived-tabs-pill-container"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -660,6 +723,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
               return (
                 <button
                   key={tab.id}
+                  className="archived-tab-btn"
                   onClick={() => {
                     sfx.playClick();
                     if (audioRef.current) {
@@ -877,6 +941,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                     onClick={() => {
                       sfx.playClick();
                       setSelectedChat(chat);
+                      onChatOpenChange?.(true);
                       setActiveTab('media');
                       setMediaSearch('');
                     }}
@@ -1098,6 +1163,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
                     >
                       {/* Media Preview Box */}
                       <div
+                        className="archived-media-preview-box"
                         style={{
                           height: '140px',
                           background: '#0f172a',

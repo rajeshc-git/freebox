@@ -143,6 +143,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
   const [isEmptyTrashOpen, setIsEmptyTrashOpen] = useState(false);
   const [isMobileAddMenuOpen, setIsMobileAddMenuOpen] = useState(false);
   const [isStoragePopupOpen, setIsStoragePopupOpen] = useState(false);
+  const [isArchivedChatOpen, setIsArchivedChatOpen] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
   const storagePopupRef = useRef<HTMLDivElement>(null);
   const userProfileRef = useRef<HTMLDivElement>(null);
@@ -1538,7 +1539,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
               <span>Select All</span>
             </button>
           </div>
-        ) : (
+        ) : (currentCategory === 'others' && isArchivedChatOpen) ? null : (
           <div
             className="explorer-subbar"
             style={{
@@ -1830,7 +1831,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
         {/* If Others is selected, render the dedicated Archived Chats & Media Explorer */}
         {currentCategory === 'others' ? (
-          <ArchivedChatsView />
+          <ArchivedChatsView onChatOpenChange={setIsArchivedChatOpen} />
         ) : currentCategory === 'live_photo' ? (
           <LivePhotosView
             files={files}
