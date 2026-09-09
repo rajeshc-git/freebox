@@ -859,7 +859,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                   </span>
                 </div>
 
-                <div style={{ fontSize: '0.7rem', color: '#0284c7', lineHeight: 1.3 }}>
+                <div className="hide-on-mobile" style={{ fontSize: '0.7rem', color: '#0284c7', lineHeight: 1.3 }}>
                   Stored across {storageStats.totalFilesCount} {storageStats.totalFilesCount === 1 ? 'file' : 'files'} in Telegram Cloud
                 </div>
 
