@@ -791,16 +791,55 @@ const LivePhotoCard: React.FC<{
 }> = ({ pair, isSelected = false, onToggleSelect, onOpenLightbox, onShare, onDelete }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPressHolding, setIsPressHolding] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [bufferPercent, setBufferPercent] = useState<number>(0);
+  const [playbackProgress, setPlaybackProgress] = useState<number>(0);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const holdTimerRef = useRef<number | null>(null);
   const isPressHoldingRef = useRef(false);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const lastHoldEndedRef = useRef<number>(0);
 
+  const updateBufferProgress = () => {
+    if (videoRef.current && videoRef.current.duration > 0) {
+      const buffered = videoRef.current.buffered;
+      if (buffered.length > 0) {
+        const loadedEnd = buffered.end(buffered.length - 1);
+        const percent = Math.min(100, Math.round((loadedEnd / videoRef.current.duration) * 100));
+        setBufferPercent(percent);
+      }
+    }
+  };
+
+  const handleWaiting = () => {
+    setIsBuffering(true);
+    updateBufferProgress();
+  };
+
+  const handlePlaying = () => {
+    setIsBuffering(false);
+    updateBufferProgress();
+  };
+
+  const handleProgress = () => {
+    updateBufferProgress();
+  };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current && videoRef.current.duration > 0) {
+      const percent = (videoRef.current.currentTime / videoRef.current.duration) * 100;
+      setPlaybackProgress(percent);
+    }
+  };
+
   const startPlayback = (e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
     setIsPlaying(true);
     if (videoRef.current) {
+      if (videoRef.current.readyState < 3) {
+        setIsBuffering(true);
+      }
       videoRef.current.currentTime = 0;
       videoRef.current.play().catch(() => {});
     }
@@ -809,6 +848,8 @@ const LivePhotoCard: React.FC<{
   const stopPlayback = (e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
     setIsPlaying(false);
+    setIsBuffering(false);
+    setPlaybackProgress(0);
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
@@ -976,6 +1017,11 @@ const LivePhotoCard: React.FC<{
           playsInline
           loop
           preload="auto"
+          onWaiting={handleWaiting}
+          onPlaying={handlePlaying}
+          onCanPlay={handlePlaying}
+          onProgress={handleProgress}
+          onTimeUpdate={handleTimeUpdate}
           style={{
             width: '100%',
             height: '100%',
@@ -986,6 +1032,90 @@ const LivePhotoCard: React.FC<{
             WebkitUserSelect: 'none',
           }}
         />
+
+        {/* Real-time Loading & Buffering Spinner Overlay */}
+        {isPlaying && isBuffering && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0, 0, 0, 0.45)',
+              backdropFilter: 'blur(3px)',
+              color: '#ffffff',
+              zIndex: 3,
+              gap: '0.4rem',
+              pointerEvents: 'none',
+            }}
+          >
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                border: '3px solid rgba(255,255,255,0.25)',
+                borderTopColor: '#38bdf8',
+                borderRadius: '50%',
+                animation: 'spin 0.75s linear infinite',
+              }}
+            />
+            <div
+              style={{
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                letterSpacing: '0.02em',
+                color: '#f8fafc',
+                textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+              }}
+            >
+              {bufferPercent > 0 ? `Loading ${bufferPercent}%` : 'Loading Motion...'}
+            </div>
+          </div>
+        )}
+
+        {/* Real Bottom Progress Line (Buffered fill + Playback scrubber) */}
+        {isPlaying && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              width: '100%',
+              height: 3,
+              background: 'rgba(255,255,255,0.2)',
+              zIndex: 4,
+              overflow: 'hidden',
+            }}
+          >
+            {/* Real Buffer Layer (Subtle glow) */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                height: '100%',
+                width: `${bufferPercent}%`,
+                background: 'rgba(56, 189, 248, 0.45)',
+                transition: 'width 0.2s ease-out',
+              }}
+            />
+            {/* Real Playback Progress Layer */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                height: '100%',
+                width: `${playbackProgress}%`,
+                background: '#38bdf8',
+                boxShadow: '0 0 6px #38bdf8',
+                transition: 'width 0.1s linear',
+              }}
+            />
+          </div>
+        )}
 
         {/* Live Badge */}
         <div
@@ -1170,18 +1300,58 @@ const LivePhotoLightbox: React.FC<{
   const [isPlaying, setIsPlaying] = useState(true);
   const [isPressHolding, setIsPressHolding] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
+  const [bufferPercent, setBufferPercent] = useState<number>(0);
+  const [playbackProgress, setPlaybackProgress] = useState<number>(0);
+
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const holdTimerRef = useRef<number | null>(null);
   const isPressHoldingRef = useRef(false);
   const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const lastHoldEndedRef = useRef<number>(0);
 
+  const updateBufferProgress = () => {
+    if (videoRef.current && videoRef.current.duration > 0) {
+      const buffered = videoRef.current.buffered;
+      if (buffered.length > 0) {
+        const loadedEnd = buffered.end(buffered.length - 1);
+        const percent = Math.min(100, Math.round((loadedEnd / videoRef.current.duration) * 100));
+        setBufferPercent(percent);
+      }
+    }
+  };
+
+  const handleWaiting = () => {
+    setIsBuffering(true);
+    updateBufferProgress();
+  };
+
+  const handlePlaying = () => {
+    setIsBuffering(false);
+    updateBufferProgress();
+  };
+
+  const handleProgress = () => {
+    updateBufferProgress();
+  };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current && videoRef.current.duration > 0) {
+      const percent = (videoRef.current.currentTime / videoRef.current.duration) * 100;
+      setPlaybackProgress(percent);
+    }
+  };
+
   const togglePlay = () => {
     if (!videoRef.current) return;
     if (isPlaying) {
       videoRef.current.pause();
       setIsPlaying(false);
+      setIsBuffering(false);
     } else {
+      if (videoRef.current.readyState < 3) {
+        setIsBuffering(true);
+      }
       videoRef.current.play().catch(() => {});
       setIsPlaying(true);
     }
@@ -1190,12 +1360,16 @@ const LivePhotoLightbox: React.FC<{
   const startPlayback = () => {
     setIsPlaying(true);
     if (videoRef.current) {
+      if (videoRef.current.readyState < 3) {
+        setIsBuffering(true);
+      }
       videoRef.current.play().catch(() => {});
     }
   };
 
   const pausePlayback = () => {
     setIsPlaying(false);
+    setIsBuffering(false);
     if (videoRef.current) {
       videoRef.current.pause();
     }
@@ -1491,6 +1665,11 @@ const LivePhotoLightbox: React.FC<{
           loop
           playsInline
           muted={isMuted}
+          onWaiting={handleWaiting}
+          onPlaying={handlePlaying}
+          onCanPlay={handlePlaying}
+          onProgress={handleProgress}
+          onTimeUpdate={handleTimeUpdate}
           style={{
             maxWidth: '100%',
             maxHeight: '78vh',
@@ -1500,6 +1679,79 @@ const LivePhotoLightbox: React.FC<{
             WebkitUserSelect: 'none',
           }}
         />
+
+        {/* Real Buffering Spinner in Lightbox */}
+        {isBuffering && (
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(0,0,0,0.45)',
+              backdropFilter: 'blur(4px)',
+              color: '#ffffff',
+              zIndex: 3,
+              gap: '0.5rem',
+              pointerEvents: 'none',
+            }}
+          >
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                border: '3.5px solid rgba(255,255,255,0.25)',
+                borderTopColor: '#38bdf8',
+                borderRadius: '50%',
+                animation: 'spin 0.75s linear infinite',
+              }}
+            />
+            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc' }}>
+              {bufferPercent > 0 ? `Loading Motion ${bufferPercent}%` : 'Buffering Live Motion...'}
+            </div>
+          </div>
+        )}
+
+        {/* Bottom Timeline Scrub / Buffer Line */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            width: '100%',
+            height: 4,
+            background: 'rgba(255,255,255,0.2)',
+            zIndex: 4,
+          }}
+        >
+          {/* Buffer Bar */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              height: '100%',
+              width: `${bufferPercent}%`,
+              background: 'rgba(56, 189, 248, 0.45)',
+              transition: 'width 0.2s ease-out',
+            }}
+          />
+          {/* Playback Scrub */}
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              height: '100%',
+              width: `${playbackProgress}%`,
+              background: '#38bdf8',
+              boxShadow: '0 0 8px #38bdf8',
+              transition: 'width 0.1s linear',
+            }}
+          />
+        </div>
 
         {/* Live Indicator overlay when active */}
         {isPressHolding && (
