@@ -1834,6 +1834,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
         ) : (
           /* Scrollable File & Folder Area */
           <div
+            className="main-scroll-area"
             style={{ flex: 1, overflowY: 'auto', padding: '1.75rem', position: 'relative' }}
             onDragOver={(e) => {
               e.preventDefault();
@@ -1904,13 +1905,14 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                 <span>Folders ({currentFolders.length})</span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
+              <div className="drive-folders-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
                 {currentFolders.map((fld) => {
                   const isHoverTarget = dragTargetFolderId === fld.id;
                   const isFolderSelected = selectedFolderIds.includes(fld.id);
                   return (
                     <div
                       key={fld.id}
+                      className="drive-folder-card"
                       onClick={() => {
                         if (isLongPressRef.current) return;
                         if (selectedFolderIds.length > 0) {
@@ -2113,12 +2115,13 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
               </div>
             ) : viewMode === 'grid' ? (
               /* Grid View */
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.25rem' }}>
+              <div className="drive-files-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1.25rem' }}>
                 {displayedFiles.map((file) => {
                   const isSelected = selectedIds.includes(file.id);
                   return (
                     <div
                       key={file.id}
+                      className="drive-file-card"
                       draggable={true}
                       onDragStart={(e) => {
                         e.dataTransfer.setData('text/plain', file.id);
@@ -2139,6 +2142,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                       }}
                     >
                       <div
+                        className="drive-file-card-preview"
                         onClick={() => {
                           sfx.playClick();
                           onPreviewFile(file);
@@ -2210,7 +2214,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                         </button>
                       </div>
 
-                      <div style={{ padding: '0.85rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                      <div className="drive-file-card-info" style={{ padding: '0.85rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                         <div
                           onClick={() => {
                             sfx.playClick();
