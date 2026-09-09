@@ -865,6 +865,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
               </div>
             ) : (
               <div
+                className="archived-chats-grid"
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
@@ -1049,6 +1050,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = () => {
             ) : viewMode === 'grid' ? (
               /* GRID VIEW */
               <div
+                className="archived-media-grid"
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))',

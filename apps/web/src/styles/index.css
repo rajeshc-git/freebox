@@ -1045,13 +1045,15 @@ body {
     font-size: 0.84rem !important;
   }
 
-  /* 2-column grid on mobile for files, folders, and live photos */
+  /* 2-column grid on mobile for files, folders, live photos, and archived chats/media */
   .main-scroll-area {
     padding: 0.75rem !important;
   }
   .drive-folders-grid,
   .drive-files-grid,
-  .live-photos-grid {
+  .live-photos-grid,
+  .archived-chats-grid,
+  .archived-media-grid {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 0.65rem !important;
   }
