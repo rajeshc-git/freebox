@@ -1389,58 +1389,64 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = ({ onChatOpen
             ) : (
               /* LIST VIEW */
               <div
+                className="archived-list-container"
                 style={{
                   background: '#ffffff',
                   borderRadius: '16px',
                   border: '1px solid #e2e8f0',
-                  overflow: 'hidden',
+                  overflowX: 'auto',
+                  overflowY: 'hidden',
+                  WebkitOverflowScrolling: 'touch',
                 }}
               >
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '40px 1fr 120px 120px 80px',
-                    padding: '0.75rem 1.25rem',
-                    background: '#f8fafc',
-                    borderBottom: '1px solid #e2e8f0',
-                    fontSize: '0.75rem',
-                    fontWeight: 700,
-                    color: '#64748b',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                  }}
-                >
-                  <span>Type</span>
-                  <span>Name</span>
-                  <span>Size</span>
-                  <span>Date</span>
-                  <span style={{ textAlign: 'right' }}>Action</span>
-                </div>
+                <div className="archived-list-table-inner" style={{ minWidth: '100%' }}>
+                  <div
+                    className="archived-list-header-row"
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '40px 1fr 120px 120px 80px',
+                      padding: '0.75rem 1.25rem',
+                      background: '#f8fafc',
+                      borderBottom: '1px solid #e2e8f0',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      color: '#64748b',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                    }}
+                  >
+                    <span>Type</span>
+                    <span>Name</span>
+                    <span>Size</span>
+                    <span>Date</span>
+                    <span style={{ textAlign: 'right' }}>Action</span>
+                  </div>
 
-                {filteredMedia.map((media, idx) => {
-                  const isImage = media.type === 'image';
-                  const isVideo = media.type === 'video';
-                  const isAudio = media.type === 'audio';
-                  const isCurrentPlaying = playingAudioId === media.id && isPlaying;
-                  const fileName = media.fileName || media.name || `media_${media.id}`;
+                  {filteredMedia.map((media, idx) => {
+                    const isImage = media.type === 'image';
+                    const isVideo = media.type === 'video';
+                    const isAudio = media.type === 'audio';
+                    const isCurrentPlaying = playingAudioId === media.id && isPlaying;
+                    const fileName = media.fileName || media.name || `media_${media.id}`;
 
-                  return (
-                    <div
-                      key={media.id}
-                      onClick={() => {
-                        sfx.playClick();
-                        setActiveMediaIndex(idx);
-                      }}
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: '40px 1fr 120px 120px 80px',
-                        padding: '0.75rem 1.25rem',
-                        alignItems: 'center',
-                        borderBottom: '1px solid #f1f5f9',
-                        cursor: 'pointer',
-                        transition: 'background 0.15s ease',
-                        background: isCurrentPlaying ? '#f5f3ff' : '#ffffff',
-                      }}
+                    return (
+                      <div
+                        key={media.id}
+                        className="archived-list-data-row"
+                        onClick={() => {
+                          sfx.playClick();
+                          setActiveMediaIndex(idx);
+                        }}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '40px 1fr 120px 120px 80px',
+                          padding: '0.75rem 1.25rem',
+                          alignItems: 'center',
+                          borderBottom: '1px solid #f1f5f9',
+                          cursor: 'pointer',
+                          transition: 'background 0.15s ease',
+                          background: isCurrentPlaying ? '#f5f3ff' : '#ffffff',
+                        }}
                       onMouseEnter={(e) =>
                         (e.currentTarget.style.background = isCurrentPlaying ? '#ede9fe' : '#f8fafc')
                       }
@@ -1544,6 +1550,7 @@ export const ArchivedChatsView: React.FC<ArchivedChatsViewProps> = ({ onChatOpen
                     </div>
                   );
                 })}
+                </div>
               </div>
             )}
 

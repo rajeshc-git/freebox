@@ -1140,6 +1140,22 @@ body {
   .archived-back-text {
     display: none !important;
   }
+
+  /* Archived List View Horizontal Scrolling on Mobile so file names don't truncate */
+  .archived-list-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    border-radius: 14px !important;
+  }
+  .archived-list-table-inner {
+    min-width: 540px !important;
+  }
+  .archived-list-header-row,
+  .archived-list-data-row {
+    grid-template-columns: 36px minmax(200px, 1fr) 90px 95px 65px !important;
+    padding: 0.65rem 0.85rem !important;
+  }
+
   .archived-header-actions {
     width: 100%;
   }
