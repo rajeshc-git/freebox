@@ -1611,15 +1611,34 @@ const LivePhotoLightbox: React.FC<{
           WebkitUserSelect: 'none',
           WebkitTouchCallout: 'none',
           touchAction: 'none',
+          background: '#000000',
         }}
       >
+        {/* Instant Still Photo Layer (Cached in browser memory from grid card for 0ms delay) */}
+        <SmartImage
+          src={api.getFileStreamUrl(pair.photoFile.id)}
+          alt={pair.baseName}
+          filename={pair.photoFile.name}
+          style={{
+            maxWidth: '100%',
+            maxHeight: '78vh',
+            objectFit: 'contain',
+            display: isPlaying ? 'none' : 'block',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+          }}
+        />
+
         <video
           ref={videoRef}
           src={api.getFileStreamUrl(pair.videoFile.id)}
+          poster={api.getFileStreamUrl(pair.photoFile.id)}
           autoPlay
           loop
           playsInline
           muted={isMuted}
+          preload="auto"
           onWaiting={handleWaiting}
           onPlaying={handlePlaying}
           onCanPlay={handlePlaying}
@@ -1629,6 +1648,7 @@ const LivePhotoLightbox: React.FC<{
             maxWidth: '100%',
             maxHeight: '78vh',
             objectFit: 'contain',
+            display: isPlaying ? 'block' : 'none',
             pointerEvents: 'none',
             userSelect: 'none',
             WebkitUserSelect: 'none',
