@@ -1382,8 +1382,8 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
               </div>
             </div>
 
-            {/* Desktop Right / Mobile Bottom Full-Width Strip: Select All (Desktop) + Category Scroll */}
-            <div className="explorer-subbar-right">
+            {/* Desktop Right Strip: Select All (Desktop) + Category Scroll (Hidden on mobile since hamburger drawer has all categories) */}
+            <div className="explorer-subbar-right hide-on-mobile">
               <button
                 onClick={selectAll}
                 className="hide-on-mobile"

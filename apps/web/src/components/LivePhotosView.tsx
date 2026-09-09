@@ -790,7 +790,12 @@ const LivePhotoCard: React.FC<{
   onDelete: () => void;
 }> = ({ pair, isSelected = false, onToggleSelect, onOpenLightbox, onShare, onDelete }) => {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPressHolding, setIsPressHolding] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const holdTimerRef = useRef<number | null>(null);
+  const isPressHoldingRef = useRef(false);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const lastHoldEndedRef = useRef<number>(0);
 
   const startPlayback = (e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
@@ -819,27 +824,118 @@ const LivePhotoCard: React.FC<{
     }
   };
 
+  // Touch handlers for mobile/tablet press-and-hold (Native iPhone Style)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    isPressHoldingRef.current = false;
+
+    if (holdTimerRef.current) {
+      window.clearTimeout(holdTimerRef.current);
+    }
+
+    // Short hold delay (~150ms) to distinguish deliberate press-and-hold from scroll/tap
+    holdTimerRef.current = window.setTimeout(() => {
+      isPressHoldingRef.current = true;
+      setIsPressHolding(true);
+      startPlayback();
+      try {
+        if (navigator.vibrate) navigator.vibrate(25);
+      } catch (_) {}
+    }, 150);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPosRef.current || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
+    const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
+
+    // If user moves finger > 10px (e.g. scrolling the page), cancel the hold
+    if (dx > 10 || dy > 10) {
+      if (holdTimerRef.current) {
+        window.clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      if (isPressHoldingRef.current) {
+        isPressHoldingRef.current = false;
+        setIsPressHolding(false);
+        stopPlayback();
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (holdTimerRef.current) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+
+    if (isPressHoldingRef.current) {
+      // User was pressing and holding to preview Live Photo:
+      lastHoldEndedRef.current = Date.now();
+      isPressHoldingRef.current = false;
+      setIsPressHolding(false);
+      stopPlayback();
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    }
+  };
+
+  const handleTouchCancel = () => {
+    if (holdTimerRef.current) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (isPressHoldingRef.current) {
+      isPressHoldingRef.current = false;
+      setIsPressHolding(false);
+      stopPlayback();
+    }
+  };
+
+  const handleClick = (e: React.MouseEvent) => {
+    // If click was immediately preceded by a touch press-and-hold release, ignore it so lightbox doesn't pop up
+    if (Date.now() - lastHoldEndedRef.current < 400) {
+      e.stopPropagation();
+      return;
+    }
+    onOpenLightbox();
+  };
+
   return (
     <div
       onMouseEnter={startPlayback}
       onMouseLeave={stopPlayback}
-      onClick={onOpenLightbox}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchCancel}
+      onClick={handleClick}
       style={{
         background: '#ffffff',
         borderRadius: 18,
         overflow: 'hidden',
-        border: isSelected ? '2px solid var(--tg-blue)' : '1px solid #e2e8f0',
+        border: isSelected ? '2px solid var(--tg-blue)' : isPressHolding ? '2px solid #38bdf8' : '1px solid #e2e8f0',
         boxShadow: isSelected
           ? '0 0 0 3px var(--tg-blue-glow)'
+          : isPressHolding
+          ? '0 0 0 3px rgba(56, 189, 248, 0.4), 0 16px 36px rgba(36,129,204,0.3)'
           : isPlaying
           ? '0 12px 32px rgba(36,129,204,0.22)'
           : '0 2px 8px rgba(0,0,0,0.04)',
         cursor: 'pointer',
         transition: 'all 0.2s ease',
-        transform: isPlaying ? 'translateY(-2px)' : 'none',
+        transform: isPressHolding ? 'scale(0.985)' : isPlaying ? 'translateY(-2px)' : 'none',
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
+        touchAction: 'pan-y',
       }}
     >
       {/* Media Visual Stage */}
@@ -851,6 +947,9 @@ const LivePhotoCard: React.FC<{
           minHeight: 220,
           background: '#0f172a',
           overflow: 'hidden',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
         }}
       >
         {/* Still Photo Layer */}
@@ -863,6 +962,9 @@ const LivePhotoCard: React.FC<{
             height: '100%',
             objectFit: 'cover',
             display: isPlaying ? 'none' : 'block',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
           }}
         />
 
@@ -879,6 +981,9 @@ const LivePhotoCard: React.FC<{
             height: '100%',
             objectFit: 'cover',
             display: isPlaying ? 'block' : 'none',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
           }}
         />
 
@@ -1063,8 +1168,13 @@ const LivePhotoLightbox: React.FC<{
   onDelete: () => void;
 }> = ({ pair, onClose, onShare, onDelete }) => {
   const [isPlaying, setIsPlaying] = useState(true);
+  const [isPressHolding, setIsPressHolding] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const holdTimerRef = useRef<number | null>(null);
+  const isPressHoldingRef = useRef(false);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const lastHoldEndedRef = useRef<number>(0);
 
   const togglePlay = () => {
     if (!videoRef.current) return;
@@ -1072,9 +1182,98 @@ const LivePhotoLightbox: React.FC<{
       videoRef.current.pause();
       setIsPlaying(false);
     } else {
-      videoRef.current.play();
+      videoRef.current.play().catch(() => {});
       setIsPlaying(true);
     }
+  };
+
+  const startPlayback = () => {
+    setIsPlaying(true);
+    if (videoRef.current) {
+      videoRef.current.play().catch(() => {});
+    }
+  };
+
+  const pausePlayback = () => {
+    setIsPlaying(false);
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
+  };
+
+  // Touch screen press-and-hold for Lightbox
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
+    isPressHoldingRef.current = false;
+
+    if (holdTimerRef.current) {
+      window.clearTimeout(holdTimerRef.current);
+    }
+
+    holdTimerRef.current = window.setTimeout(() => {
+      isPressHoldingRef.current = true;
+      setIsPressHolding(true);
+      startPlayback();
+      try {
+        if (navigator.vibrate) navigator.vibrate(20);
+      } catch (_) {}
+    }, 120);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPosRef.current || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
+    const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
+
+    if (dx > 12 || dy > 12) {
+      if (holdTimerRef.current) {
+        window.clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+      if (isPressHoldingRef.current) {
+        isPressHoldingRef.current = false;
+        setIsPressHolding(false);
+        pausePlayback();
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (holdTimerRef.current) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+
+    if (isPressHoldingRef.current) {
+      lastHoldEndedRef.current = Date.now();
+      isPressHoldingRef.current = false;
+      setIsPressHolding(false);
+      pausePlayback();
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    }
+  };
+
+  const handleTouchCancel = () => {
+    if (holdTimerRef.current) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (isPressHoldingRef.current) {
+      isPressHoldingRef.current = false;
+      setIsPressHolding(false);
+      pausePlayback();
+    }
+  };
+
+  const handleStageClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (Date.now() - lastHoldEndedRef.current < 400) return;
+    togglePlay();
   };
 
   return (
@@ -1091,6 +1290,9 @@ const LivePhotoLightbox: React.FC<{
         justifyContent: 'space-between',
         padding: '1.25rem',
         animation: 'fadeIn 0.2s ease',
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none',
       }}
       onClick={onClose}
     >
@@ -1109,7 +1311,7 @@ const LivePhotoLightbox: React.FC<{
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0, color: '#fff' }}>
           <div
             style={{
-              background: 'var(--tg-blue)',
+              background: isPlaying ? 'var(--tg-blue)' : 'rgba(255,255,255,0.2)',
               color: '#fff',
               padding: '0.25rem 0.65rem',
               borderRadius: 9999,
@@ -1119,9 +1321,19 @@ const LivePhotoLightbox: React.FC<{
               alignItems: 'center',
               gap: 5,
               flexShrink: 0,
+              transition: 'background 0.2s ease',
             }}
           >
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff', display: 'inline-block' }} />
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: '#fff',
+                display: 'inline-block',
+                animation: isPlaying ? 'pulse 1s infinite' : 'none',
+              }}
+            />
             LIVE
           </div>
           <span
@@ -1246,21 +1458,30 @@ const LivePhotoLightbox: React.FC<{
 
       {/* Main Live Photo Stage */}
       <div
-        onClick={(e) => {
-          e.stopPropagation();
-          togglePlay();
-        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchCancel}
+        onClick={handleStageClick}
         style={{
           position: 'relative',
           maxWidth: '90vw',
           maxHeight: '78vh',
           borderRadius: 20,
           overflow: 'hidden',
-          boxShadow: '0 25px 70px rgba(0,0,0,0.7)',
+          boxShadow: isPressHolding
+            ? '0 0 0 4px rgba(56, 189, 248, 0.5), 0 30px 80px rgba(0,0,0,0.85)'
+            : '0 25px 70px rgba(0,0,0,0.7)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
+          transition: 'box-shadow 0.2s ease, transform 0.2s ease',
+          transform: isPressHolding ? 'scale(0.99)' : 'none',
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+          touchAction: 'none',
         }}
       >
         <video
@@ -1270,22 +1491,58 @@ const LivePhotoLightbox: React.FC<{
           loop
           playsInline
           muted={isMuted}
-          style={{ maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain' }}
+          style={{
+            maxWidth: '100%',
+            maxHeight: '78vh',
+            objectFit: 'contain',
+            pointerEvents: 'none',
+            userSelect: 'none',
+            WebkitUserSelect: 'none',
+          }}
         />
+
+        {/* Live Indicator overlay when active */}
+        {isPressHolding && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '1rem',
+              left: '1rem',
+              background: 'rgba(0,0,0,0.75)',
+              backdropFilter: 'blur(8px)',
+              color: '#38bdf8',
+              padding: '0.35rem 0.75rem',
+              borderRadius: 9999,
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+              animation: 'pulse 1s infinite',
+            }}
+          >
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#38bdf8' }} />
+            PLAYING LIVE
+          </div>
+        )}
       </div>
 
       {/* Minimal Footer Info Hint */}
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          color: 'rgba(255,255,255,0.65)',
-          fontSize: '0.78rem',
+          color: 'rgba(255,255,255,0.75)',
+          fontSize: '0.8rem',
           fontWeight: 500,
           letterSpacing: '0.02em',
+          textAlign: 'center',
         }}
       >
-        Tap or click photo to pause / resume motion
+        <span className="hide-on-mobile">Click to pause / resume motion</span>
+        <span className="show-on-mobile-inline">Press & hold photo to play • Tap to pause / resume</span>
       </div>
     </div>
   );
 };
+

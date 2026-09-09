@@ -1022,10 +1022,11 @@ body {
     gap: 0.4rem !important;
   }
   .explorer-subbar {
-    flex-direction: column !important;
-    align-items: stretch !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
     padding: 0.65rem 1rem !important;
-    gap: 0.65rem !important;
+    gap: 0.5rem !important;
   }
   .explorer-subbar-top {
     display: flex !important;
@@ -1034,20 +1035,7 @@ body {
     width: 100% !important;
   }
   .explorer-subbar-right {
-    width: 100% !important;
-  }
-  .explorer-category-scroll {
-    display: flex !important;
-    overflow-x: auto !important;
-    white-space: nowrap !important;
-    width: 100% !important;
-    padding-bottom: 2px !important;
-    gap: 0.45rem !important;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .explorer-category-scroll::-webkit-scrollbar {
-    display: none;
+    display: none !important;
   }
   .mobile-table-cell-name {
     max-width: 180px !important;
