@@ -1053,48 +1053,6 @@ const LivePhotoCard: React.FC<{
           }}
         />
 
-        {/* Real-time Loading & Buffering Spinner Overlay */}
-        {isPlaying && isBuffering && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'rgba(0, 0, 0, 0.45)',
-              backdropFilter: 'blur(3px)',
-              color: '#ffffff',
-              zIndex: 3,
-              gap: '0.4rem',
-              pointerEvents: 'none',
-            }}
-          >
-            <div
-              style={{
-                width: 32,
-                height: 32,
-                border: '3px solid rgba(255,255,255,0.25)',
-                borderTopColor: '#38bdf8',
-                borderRadius: '50%',
-                animation: 'spin 0.75s linear infinite',
-              }}
-            />
-            <div
-              style={{
-                fontSize: '0.74rem',
-                fontWeight: 700,
-                letterSpacing: '0.02em',
-                color: '#f8fafc',
-                textShadow: '0 1px 3px rgba(0,0,0,0.6)',
-              }}
-            >
-              {bufferPercent > 0 ? `Loading ${bufferPercent}%` : 'Loading Motion...'}
-            </div>
-          </div>
-        )}
-
         {/* Real Bottom Progress Line (Buffered fill + Playback scrubber) */}
         {isPlaying && (
           <div
@@ -1676,40 +1634,6 @@ const LivePhotoLightbox: React.FC<{
             WebkitUserSelect: 'none',
           }}
         />
-
-        {/* Real Buffering Spinner in Lightbox */}
-        {isBuffering && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              background: 'rgba(0,0,0,0.45)',
-              backdropFilter: 'blur(4px)',
-              color: '#ffffff',
-              zIndex: 3,
-              gap: '0.5rem',
-              pointerEvents: 'none',
-            }}
-          >
-            <div
-              style={{
-                width: 38,
-                height: 38,
-                border: '3.5px solid rgba(255,255,255,0.25)',
-                borderTopColor: '#38bdf8',
-                borderRadius: '50%',
-                animation: 'spin 0.75s linear infinite',
-              }}
-            />
-            <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f8fafc' }}>
-              {bufferPercent > 0 ? `Loading Motion ${bufferPercent}%` : 'Buffering Live Motion...'}
-            </div>
-          </div>
-        )}
 
         {/* Bottom Timeline Scrub / Buffer Line */}
         <div
