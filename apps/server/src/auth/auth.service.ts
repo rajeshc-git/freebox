@@ -225,12 +225,8 @@ export class AuthService {
     });
   }
 
-  async recordAndGetVisitorCount(clientIp: string): Promise<{ count: number }> {
+  async recordAndGetVisitorCount(clientIp: string, userAgent = ''): Promise<{ count: number }> {
     try {
-      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-      const cleanIp = (clientIp || 'unknown').replace(/[^a-zA-Z0-9.:_-]/g, '').slice(0, 64);
-      const ipKey = `visitor:daily:${today}:${cleanIp}`;
-
       let currentTotalStr = await this.redis.get('freebox_total_visitors');
       let total = currentTotalStr ? parseInt(currentTotalStr, 10) : 0;
 
@@ -239,6 +235,18 @@ export class AuthService {
         total = 1430;
         await this.redis.set('freebox_total_visitors', total.toString());
       }
+
+      // If request is from an automated bot, spider, or monitor, return current count without incrementing
+      const isBot = /bot|googlebot|bingbot|crawler|spider|robot|crawling|lighthouse|headless|curl|wget|pingdom|uptime|semrush/i.test(
+        userAgent
+      );
+      if (isBot) {
+        return { count: total };
+      }
+
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const cleanIp = (clientIp || 'unknown').replace(/[^a-zA-Z0-9.:_-]/g, '').slice(0, 64);
+      const ipKey = `visitor:daily:${today}:${cleanIp}`;
 
       // Check if this IP has visited today
       const alreadySeen = await this.redis.get(ipKey);

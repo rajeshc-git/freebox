@@ -15,6 +15,7 @@ export class AuthController {
     @Headers('cf-connecting-ip') cfIp?: string,
     @Headers('x-forwarded-for') xff?: string,
     @Headers('x-real-ip') xRealIp?: string,
+    @Headers('user-agent') userAgent?: string,
   ) {
     const rawIp =
       cfIp ||
@@ -23,7 +24,7 @@ export class AuthController {
       req.socket?.remoteAddress ||
       req.ip ||
       '127.0.0.1';
-    return this.authService.recordAndGetVisitorCount(rawIp);
+    return this.authService.recordAndGetVisitorCount(rawIp, userAgent || '');
   }
 
   @Post('send-code')
