@@ -633,32 +633,33 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
         </div>
       </section>
 
-      {/* About & Creator Section (Responsive & Single-line Name) */}
-      <section id="about" style={{ maxWidth: 960, margin: '0 auto 6rem auto', padding: '0 1.5rem' }}>
+      {/* About & Creator Section (Compact, Symmetrical & Sleek) */}
+      <section id="about" style={{ maxWidth: 960, margin: '0 auto 3.5rem auto', padding: '0 1.25rem' }}>
         <div
+          className="landing-about-card"
           style={{
             maxWidth: 880,
             margin: '0 auto',
             background: '#ffffff',
             border: '1px solid var(--border-subtle)',
-            borderRadius: 24,
-            padding: '1.75rem 2rem',
-            boxShadow: 'var(--shadow-md)',
+            borderRadius: 20,
+            padding: '1.25rem 1.75rem',
+            boxShadow: 'var(--shadow-sm)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '1.5rem',
+            gap: '1.25rem',
             flexWrap: 'wrap',
             textAlign: 'left',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.15rem', flex: '1 1 300px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.9rem', flex: '1 1 280px', minWidth: 0 }}>
             {/* GitHub Octocat Icon Box */}
             <div
               style={{
-                width: 48,
-                height: 48,
-                borderRadius: 14,
+                width: 44,
+                height: 44,
+                borderRadius: 12,
                 background: '#18181b',
                 color: '#ffffff',
                 display: 'flex',
@@ -667,7 +668,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
                 flexShrink: 0,
               }}
             >
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
                 <path
                   fillRule="evenodd"
                   clipRule="evenodd"
@@ -682,15 +683,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '0.3rem',
+                  gap: '0.25rem',
                   background: '#ecfdf5',
                   border: '1px solid #a7f3d0',
                   color: '#059669',
-                  fontSize: '0.68rem',
+                  fontSize: '0.66rem',
                   fontWeight: 700,
-                  padding: '0.12rem 0.5rem',
+                  padding: '0.1rem 0.45rem',
                   borderRadius: 9999,
-                  marginBottom: '0.25rem',
+                  marginBottom: '0.2rem',
                 }}
               >
                 <span>💖</span>
@@ -701,10 +702,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
               <h3
                 style={{
                   fontFamily: 'var(--font-display)',
-                  fontSize: 'clamp(0.82rem, 2.8vw, 1.05rem)',
+                  fontSize: 'clamp(0.85rem, 2.8vw, 1.02rem)',
                   fontWeight: 800,
                   color: '#0f172a',
-                  margin: '0 0 0.2rem 0',
+                  margin: '0 0 0.15rem 0',
                   whiteSpace: 'nowrap',
                 }}
               >
@@ -712,14 +713,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
               </h3>
 
               {/* Concise, non-verbose description */}
-              <p style={{ fontSize: '0.78rem', color: '#64748b', lineHeight: 1.4, margin: 0 }}>
+              <p style={{ fontSize: '0.76rem', color: '#64748b', lineHeight: 1.35, margin: 0 }}>
                 Free unlimited cloud storage. Star on GitHub!
               </p>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="about-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <div className="about-actions" style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
             <a
               href="https://github.com/rajeshc-git"
               target="_blank"
@@ -729,18 +730,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
                 color: '#ffffff',
                 border: 'none',
                 borderRadius: 9999,
-                padding: '0.65rem 1.25rem',
+                padding: '0.55rem 1.15rem',
                 fontWeight: 600,
-                fontSize: '0.86rem',
+                fontSize: '0.84rem',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.5rem',
+                gap: '0.45rem',
                 textDecoration: 'none',
-                boxShadow: '0 4px 12px rgba(24,24,27,0.15)',
+                boxShadow: '0 2px 8px rgba(24,24,27,0.15)',
                 cursor: 'pointer',
               }}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path
                   fillRule="evenodd"
                   clipRule="evenodd"
@@ -760,12 +761,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
                 color: '#0f172a',
                 border: '1.5px solid var(--border-medium)',
                 borderRadius: 9999,
-                padding: '0.75rem 1.35rem',
+                padding: '0.55rem 1.15rem',
                 fontWeight: 600,
-                fontSize: '0.88rem',
+                fontSize: '0.84rem',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.55rem',
+                gap: '0.45rem',
                 cursor: 'pointer',
                 boxShadow: 'var(--shadow-sm)',
               }}
@@ -896,9 +897,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
         </div>
       )}
 
-      {/* Footer (Clean & Proprietary - Zero Tech Stack Disclosure) */}
-      <footer style={{ borderTop: '1px solid var(--border-subtle)', padding: '2.75rem 2rem', background: '#ffffff' }}>
+      {/* Footer (Symmetrical, Compact & Premium) */}
+      <footer style={{ borderTop: '1px solid var(--border-subtle)', padding: '2rem 1.5rem', background: '#ffffff' }}>
         <div
+          className="landing-footer-wrapper"
           style={{
             maxWidth: 1240,
             margin: '0 auto',
@@ -906,50 +908,111 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
             justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
-            gap: '1.5rem',
+            gap: '1.25rem',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-            <img src="/freebox-logo.svg" alt="FreeBox" style={{ width: 32, height: 32 }} />
+          {/* Left: FreeBox Logo & Copyright */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <img src="/freebox-logo.svg" alt="FreeBox" style={{ width: 28, height: 28 }} />
             <div>
-              <span style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
+              <span style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
                 FreeBox
               </span>
-              <span style={{ fontSize: '0.82rem', color: 'var(--text-light)', marginLeft: '0.85rem' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginLeft: '0.65rem' }}>
                 © 2026 FreeBox Cloud. All rights reserved.
               </span>
             </div>
           </div>
 
+          {/* Center: Symmetrical Badges (Author & Real-Time Traffic) */}
           <div
-            className="landing-footer-author"
+            className="landing-footer-center-badges"
             style={{
-              display: 'inline-flex',
+              display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
-              fontSize: '0.92rem',
-              color: 'var(--text-muted)',
-              background: '#f8fafc',
-              border: '1px solid var(--border-subtle)',
-              padding: '0.5rem 1.15rem',
-              borderRadius: 9999,
+              justifyContent: 'center',
+              gap: '0.65rem',
+              flexWrap: 'wrap',
             }}
           >
-            <span>
-              Built with ❤️ in India by{' '}
-              <a
-                href="https://github.com/rajeshc-git"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: 'var(--text-main)', textDecoration: 'underline', fontWeight: 700 }}
+            {/* Built with ❤️ in India by Rajesh Choudhury */}
+            <div
+              className="landing-footer-author"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                fontSize: '0.82rem',
+                color: 'var(--text-muted)',
+                background: '#f8fafc',
+                border: '1px solid var(--border-subtle)',
+                padding: '0.35rem 0.85rem',
+                borderRadius: 9999,
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+              }}
+            >
+              <span>
+                Built with ❤️ in India by{' '}
+                <a
+                  href="https://github.com/rajeshc-git"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--text-main)', textDecoration: 'underline', fontWeight: 700 }}
+                >
+                  Rajesh Choudhury
+                </a>{' '}
+                🇮🇳
+              </span>
+            </div>
+
+            {/* Real-time Visitor Counter */}
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                background: '#f8fafc',
+                border: '1px solid var(--border-subtle)',
+                padding: '0.35rem 0.85rem',
+                borderRadius: 9999,
+                fontSize: '0.82rem',
+                color: 'var(--text-muted)',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+              }}
+            >
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: '50%',
+                  background: '#10b981',
+                  boxShadow: '0 0 0 2.5px rgba(16, 185, 129, 0.25)',
+                  display: 'inline-block',
+                  flexShrink: 0,
+                }}
+              />
+              <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>Traffic:</span>
+              <span
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: 700,
+                  color: 'var(--text-main)',
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  padding: '0.05rem 0.45rem',
+                  borderRadius: 6,
+                  letterSpacing: '0.02em',
+                  fontSize: '0.8rem',
+                }}
               >
-                Rajesh Choudhury
-              </a>{' '}
-              🇮🇳
-            </span>
+                {visitorCount !== null ? visitorCount.toLocaleString() : '1,431'}
+              </span>
+              <span style={{ color: 'var(--text-light)', fontSize: '0.75rem' }}>Unique Visitors</span>
+            </div>
           </div>
 
-          <div className="landing-footer-links" style={{ display: 'flex', gap: '1.75rem', fontSize: '0.88rem', color: 'var(--text-muted)' }}>
+          {/* Right: Clean Nav Links */}
+          <div className="landing-footer-links" style={{ display: 'flex', gap: '1.25rem', fontSize: '0.84rem', color: 'var(--text-muted)' }}>
             <a href="#about" style={{ textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
               About
             </a>
@@ -962,66 +1025,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
             <a href="#faq" style={{ textDecoration: 'none', color: 'inherit', fontWeight: 500 }}>
               FAQ
             </a>
-            <span style={{ color: '#10b981', fontWeight: 600 }}>100% Free SaaS</span>
-          </div>
-        </div>
-
-        {/* Real Visitor Counter Row */}
-        <div
-          style={{
-            maxWidth: 1240,
-            margin: '1.75rem auto 0 auto',
-            paddingTop: '1.25rem',
-            borderTop: '1px dashed var(--border-subtle)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '0.75rem',
-            flexWrap: 'wrap',
-          }}
-        >
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.55rem',
-              background: '#f8fafc',
-              border: '1px solid var(--border-subtle)',
-              padding: '0.35rem 0.85rem',
-              borderRadius: 9999,
-              fontSize: '0.78rem',
-              color: 'var(--text-muted)',
-              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-            }}
-          >
-            <span
-              style={{
-                width: 7,
-                height: 7,
-                borderRadius: '50%',
-                background: '#10b981',
-                boxShadow: '0 0 0 2.5px rgba(16, 185, 129, 0.25)',
-                display: 'inline-block',
-                flexShrink: 0,
-              }}
-            />
-            <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>Platform Traffic:</span>
-            <span
-              style={{
-                fontFamily: 'var(--font-mono)',
-                fontWeight: 700,
-                color: 'var(--text-main)',
-                background: '#ffffff',
-                border: '1px solid #e2e8f0',
-                padding: '0.1rem 0.5rem',
-                borderRadius: 6,
-                letterSpacing: '0.02em',
-                fontSize: '0.8rem',
-              }}
-            >
-              {visitorCount !== null ? visitorCount.toLocaleString() : '1,428'}
-            </span>
-            <span style={{ color: 'var(--text-light)', fontSize: '0.72rem' }}>Unique Visitors</span>
+            <span style={{ color: '#10b981', fontWeight: 600 }}>100% Free</span>
           </div>
         </div>
       </footer>
