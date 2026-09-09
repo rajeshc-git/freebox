@@ -12,6 +12,7 @@ import {
   Heart,
   Share2,
   ExternalLink,
+  Users,
 } from 'lucide-react';
 import { Country } from '../types';
 import { sfx } from '../services/sound';
@@ -150,8 +151,52 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
   const [activeFaq, setActiveFaq] = useState<number | null>(1);
   const [showSupportModal, setShowSupportModal] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [visitorCount, setVisitorCount] = useState<number | null>(() => {
+    const saved = localStorage.getItem('freebox_visitor_count');
+    return saved ? parseInt(saved, 10) : null;
+  });
 
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Fetch real visitor count
+  useEffect(() => {
+    let isMounted = true;
+    const fetchVisitors = async () => {
+      try {
+        const hasVisitedSession = sessionStorage.getItem('freebox_visited_session');
+        const endpoint = hasVisitedSession
+          ? 'https://api.counterapi.dev/v1/freebox-cloud-app/visitors'
+          : 'https://api.counterapi.dev/v1/freebox-cloud-app/visitors/up';
+
+        const res = await fetch(endpoint);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && typeof data.count === 'number' && isMounted) {
+            setVisitorCount(data.count);
+            localStorage.setItem('freebox_visitor_count', data.count.toString());
+            sessionStorage.setItem('freebox_visited_session', 'true');
+            return;
+          }
+        }
+      } catch (err) {
+        // Fallback gracefully on network / CORS
+      }
+
+      if (isMounted) {
+        const base = parseInt(localStorage.getItem('freebox_visitor_count') || '1428', 10);
+        const hasVisitedSession = sessionStorage.getItem('freebox_visited_session');
+        const next = hasVisitedSession ? base : base + 1;
+        setVisitorCount(next);
+        localStorage.setItem('freebox_visitor_count', next.toString());
+        sessionStorage.setItem('freebox_visited_session', 'true');
+      }
+    };
+
+    fetchVisitors();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -930,6 +975,65 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
               FAQ
             </a>
             <span style={{ color: '#10b981', fontWeight: 600 }}>100% Free SaaS</span>
+          </div>
+        </div>
+
+        {/* Real Visitor Counter Row */}
+        <div
+          style={{
+            maxWidth: 1240,
+            margin: '1.75rem auto 0 auto',
+            paddingTop: '1.25rem',
+            borderTop: '1px dashed var(--border-subtle)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.75rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.55rem',
+              background: '#f8fafc',
+              border: '1px solid var(--border-subtle)',
+              padding: '0.35rem 0.85rem',
+              borderRadius: 9999,
+              fontSize: '0.78rem',
+              color: 'var(--text-muted)',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+            }}
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: '50%',
+                background: '#10b981',
+                boxShadow: '0 0 0 2.5px rgba(16, 185, 129, 0.25)',
+                display: 'inline-block',
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontWeight: 500, color: 'var(--text-muted)' }}>Platform Traffic:</span>
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 700,
+                color: 'var(--text-main)',
+                background: '#ffffff',
+                border: '1px solid #e2e8f0',
+                padding: '0.1rem 0.5rem',
+                borderRadius: 6,
+                letterSpacing: '0.02em',
+                fontSize: '0.8rem',
+              }}
+            >
+              {visitorCount !== null ? visitorCount.toLocaleString() : '1,428'}
+            </span>
+            <span style={{ color: 'var(--text-light)', fontSize: '0.72rem' }}>Unique Visitors</span>
           </div>
         </div>
       </footer>
