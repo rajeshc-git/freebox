@@ -24,6 +24,15 @@ function authHeaders(): Record<string, string> {
 }
 
 export const api = {
+  // Visitor Count
+  async getVisitorCount(): Promise<{ count: number }> {
+    const res = await fetch(`${API_BASE}/auth/visitor-count`);
+    if (!res.ok) {
+      throw new Error('Failed to fetch visitor count');
+    }
+    return res.json();
+  },
+
   // Real Telegram MTProto Auth
   async sendCode(phone: string): Promise<{ success: boolean; phone: string }> {
     const res = await fetch(`${API_BASE}/auth/send-code`, {

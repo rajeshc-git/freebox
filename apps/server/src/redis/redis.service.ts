@@ -69,4 +69,24 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     }
     this.memoryCache.delete(key);
   }
+
+  async incr(key: string): Promise<number> {
+    if (this.client) {
+      return await this.client.incr(key);
+    }
+
+    const entry = this.memoryCache.get(key);
+    let currentVal = 0;
+    if (entry) {
+      if (entry.expiresAt && Date.now() > entry.expiresAt) {
+        this.memoryCache.delete(key);
+      } else {
+        currentVal = parseInt(entry.value, 10) || 0;
+      }
+    }
+    const newVal = currentVal + 1;
+    this.memoryCache.set(key, { value: newVal.toString() });
+    return newVal;
+  }
 }
+

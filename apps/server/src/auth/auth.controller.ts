@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, Get, Headers, Req, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtService } from '@nestjs/jwt';
 
@@ -8,6 +8,23 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly jwtService: JwtService,
   ) {}
+
+  @Get('visitor-count')
+  async getVisitorCount(
+    @Req() req: any,
+    @Headers('cf-connecting-ip') cfIp?: string,
+    @Headers('x-forwarded-for') xff?: string,
+    @Headers('x-real-ip') xRealIp?: string,
+  ) {
+    const rawIp =
+      cfIp ||
+      (xff ? xff.split(',')[0].trim() : null) ||
+      xRealIp ||
+      req.socket?.remoteAddress ||
+      req.ip ||
+      '127.0.0.1';
+    return this.authService.recordAndGetVisitorCount(rawIp);
+  }
 
   @Post('send-code')
   async sendCode(@Body() body: { phone: string }) {
@@ -34,3 +51,4 @@ export class AuthController {
     }
   }
 }
+

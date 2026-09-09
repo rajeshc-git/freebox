@@ -224,5 +224,35 @@ export class AuthService {
       where: { id: userId },
     });
   }
+
+  async recordAndGetVisitorCount(clientIp: string): Promise<{ count: number }> {
+    try {
+      const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+      const cleanIp = (clientIp || 'unknown').replace(/[^a-zA-Z0-9.:_-]/g, '').slice(0, 64);
+      const ipKey = `visitor:daily:${today}:${cleanIp}`;
+
+      let currentTotalStr = await this.redis.get('freebox_total_visitors');
+      let total = currentTotalStr ? parseInt(currentTotalStr, 10) : 0;
+
+      // Initialize base count if not yet seeded in Redis
+      if (!currentTotalStr || isNaN(total) || total < 1430) {
+        total = 1430;
+        await this.redis.set('freebox_total_visitors', total.toString());
+      }
+
+      // Check if this IP has visited today
+      const alreadySeen = await this.redis.get(ipKey);
+      if (!alreadySeen && cleanIp !== 'unknown') {
+        await this.redis.set(ipKey, '1', 86400); // 24-hour TTL per IP
+        total = await this.redis.incr('freebox_total_visitors');
+      }
+
+      return { count: total };
+    } catch (err) {
+      this.logger.error(`Error in recordAndGetVisitorCount: ${err.message}`);
+      return { count: 1430 };
+    }
+  }
 }
+
 

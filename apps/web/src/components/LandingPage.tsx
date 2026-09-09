@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Country } from '../types';
 import { sfx } from '../services/sound';
+import { api } from '../services/api';
 
 interface LandingPageProps {
   onStartLogin: (phone: string, country: Country) => void;
@@ -158,37 +159,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
 
   const dropdownRef = useRef<HTMLDivElement | null>(null);
 
-  // Fetch real visitor count
+  // Fetch real visitor count from backend
   useEffect(() => {
     let isMounted = true;
     const fetchVisitors = async () => {
       try {
-        const hasVisitedSession = sessionStorage.getItem('freebox_visited_session');
-        const endpoint = hasVisitedSession
-          ? 'https://api.counterapi.dev/v1/freebox-cloud-app/visitors'
-          : 'https://api.counterapi.dev/v1/freebox-cloud-app/visitors/up';
-
-        const res = await fetch(endpoint);
-        if (res.ok) {
-          const data = await res.json();
-          if (data && typeof data.count === 'number' && isMounted) {
-            setVisitorCount(data.count);
-            localStorage.setItem('freebox_visitor_count', data.count.toString());
-            sessionStorage.setItem('freebox_visited_session', 'true');
-            return;
-          }
+        const data = await api.getVisitorCount();
+        if (data && typeof data.count === 'number' && isMounted) {
+          setVisitorCount(data.count);
+          localStorage.setItem('freebox_visitor_count', data.count.toString());
+          return;
         }
       } catch (err) {
-        // Fallback gracefully on network / CORS
+        // Fallback gracefully on network / offline
       }
 
       if (isMounted) {
-        const base = parseInt(localStorage.getItem('freebox_visitor_count') || '1428', 10);
-        const hasVisitedSession = sessionStorage.getItem('freebox_visited_session');
-        const next = hasVisitedSession ? base : base + 1;
-        setVisitorCount(next);
-        localStorage.setItem('freebox_visitor_count', next.toString());
-        sessionStorage.setItem('freebox_visited_session', 'true');
+        const base = parseInt(localStorage.getItem('freebox_visitor_count') || '1430', 10);
+        setVisitorCount(base);
       }
     };
 
