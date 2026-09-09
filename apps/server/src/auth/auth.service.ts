@@ -248,8 +248,8 @@ export class AuthService {
       }
 
       return { count: total };
-    } catch (err) {
-      this.logger.error(`Error in recordAndGetVisitorCount: ${err.message}`);
+    } catch (err: any) {
+      this.logger.error(`Error in recordAndGetVisitorCount: ${err?.message || err}`);
       return { count: 1430 };
     }
   }
