@@ -205,7 +205,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
 
       {/* Hero Section */}
       <section className="hero-section" id="hero">
-        <div>
+        <div className="hero-left-content">
           <div className="hero-pill-badge">
             <span className="dot"></span>
             Next-Generation Personal Cloud • Updated Sep 2026
@@ -220,8 +220,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
           </div>
         </div>
 
-        {/* Sign in to FreeDisk Card */}
-        <div style={{ display: 'flex', justifyContent: 'center' }}>
+        {/* Sign in to FreeBox Card */}
+        <div style={{ display: 'flex', justifyContent: 'center' }} className="signin-card-container">
           <div className="signin-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
               <div>
