@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "baseUrl": ".",
+    "paths": {
+      "@prisma/client": ["./apps/server/node_modules/@prisma/client", "./node_modules/@prisma/client"]
+    },
+    "skipLibCheck": true,
+    "strict": false
+  },
+  "exclude": ["node_modules", "dist"]
+}
