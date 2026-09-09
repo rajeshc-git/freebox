@@ -34,6 +34,15 @@ import {
   ChevronDown,
   Sparkles,
   Archive,
+  Cloud,
+  HardDrive,
+  ShieldCheck,
+  CheckCircle2,
+  Image as ImageIcon,
+  Film,
+  Music,
+  Info,
+  Database,
 } from 'lucide-react';
 import { User, Folder, DriveFile, StorageMetrics } from '../types';
 import { sfx } from '../services/sound';
@@ -131,7 +140,10 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
   const [isBatchDeleteOpen, setIsBatchDeleteOpen] = useState(false);
   const [isEmptyTrashOpen, setIsEmptyTrashOpen] = useState(false);
   const [isMobileAddMenuOpen, setIsMobileAddMenuOpen] = useState(false);
+  const [isStoragePopupOpen, setIsStoragePopupOpen] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
+  const storagePopupRef = useRef<HTMLDivElement>(null);
+  const userProfileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent | TouchEvent) {
@@ -148,6 +160,27 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
       };
     }
   }, [isMobileAddMenuOpen]);
+
+  useEffect(() => {
+    function handleClickOutsideStorage(event: MouseEvent | TouchEvent) {
+      if (
+        storagePopupRef.current &&
+        !storagePopupRef.current.contains(event.target as Node) &&
+        userProfileRef.current &&
+        !userProfileRef.current.contains(event.target as Node)
+      ) {
+        setIsStoragePopupOpen(false);
+      }
+    }
+    if (isStoragePopupOpen) {
+      document.addEventListener('mousedown', handleClickOutsideStorage);
+      document.addEventListener('touchstart', handleClickOutsideStorage);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutsideStorage);
+        document.removeEventListener('touchstart', handleClickOutsideStorage);
+      };
+    }
+  }, [isStoragePopupOpen]);
 
   const longPressTimerRef = useRef<any>(null);
   const isLongPressRef = useRef(false);
@@ -201,6 +234,48 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
   }, [files]);
 
   const livePhotosCount = pairedLivePhotoBaseNames.size;
+
+  // Storage Stats Breakdown for Telegram Cloud consumption popup
+  const storageStats = React.useMemo(() => {
+    const activeFiles = files.filter((f) => !f.isTrashed);
+    const trashedFiles = files.filter((f) => f.isTrashed);
+
+    const activeBytes = activeFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+    const trashBytes = trashedFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+    const totalBytes = metrics?.totalBytes ?? activeBytes;
+    const totalFilesCount = metrics?.totalFiles ?? activeFiles.length;
+
+    const images = activeFiles.filter((f) => f.type === 'image');
+    const videos = activeFiles.filter((f) => f.type === 'video');
+    const docs = activeFiles.filter((f) => f.type === 'document');
+    const audio = activeFiles.filter((f) => f.type === 'audio');
+    const archives = activeFiles.filter((f) => f.type === 'archive');
+
+    const imageBytes = images.reduce((sum, f) => sum + (f.size || 0), 0);
+    const videoBytes = videos.reduce((sum, f) => sum + (f.size || 0), 0);
+    const docBytes = docs.reduce((sum, f) => sum + (f.size || 0), 0);
+    const audioBytes = audio.reduce((sum, f) => sum + (f.size || 0), 0);
+    const archiveBytes = archives.reduce((sum, f) => sum + (f.size || 0), 0);
+
+    return {
+      totalBytes,
+      totalFilesCount,
+      activeBytes,
+      trashBytes,
+      trashCount: metrics?.trashCount ?? trashedFiles.length,
+      imageCount: metrics?.categories?.images ?? images.length,
+      imageBytes,
+      videoCount: metrics?.categories?.videos ?? videos.length,
+      videoBytes,
+      docCount: metrics?.categories?.documents ?? docs.length,
+      docBytes,
+      audioCount: metrics?.categories?.audio ?? audio.length,
+      audioBytes,
+      archiveCount: metrics?.categories?.archives ?? archives.length,
+      archiveBytes,
+      starredCount: metrics?.categories?.starred ?? activeFiles.filter((f) => f.starred).length,
+    };
+  }, [files, metrics]);
 
   // Matched Live Photo Pairs (for Live Photos Studio)
   const livePhotoPairs: LivePhotoPair[] = React.useMemo(() => {
@@ -658,39 +733,352 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           ))}
         </ul>
 
-        {/* User Footer */}
+        {/* User Footer with Telegram Storage Consumption Popup */}
         <div
+          ref={userProfileRef}
           style={{
+            position: 'relative',
             marginTop: 'auto',
-            padding: '1rem 1.25rem',
+            padding: '0.85rem 1rem',
             borderTop: '1px solid var(--border-subtle)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            background: isStoragePopupOpen ? '#f8fafc' : 'transparent',
+            transition: 'background 0.15s ease',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          {/* Telegram Storage Consumption Popup */}
+          {isStoragePopupOpen && (
+            <div
+              ref={storagePopupRef}
+              style={{
+                position: 'absolute',
+                bottom: 'calc(100% + 10px)',
+                left: '0.5rem',
+                right: '0.5rem',
+                background: '#ffffff',
+                borderRadius: 16,
+                boxShadow: '0 16px 36px -4px rgba(15, 23, 42, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.08)',
+                padding: '1rem',
+                zIndex: 999,
+                animation: 'popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.85rem',
+              }}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <div
+                    style={{
+                      width: 26,
+                      height: 26,
+                      borderRadius: 8,
+                      background: 'rgba(36, 129, 204, 0.12)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--tg-blue)',
+                    }}
+                  >
+                    <Cloud size={15} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', lineHeight: 1.1 }}>
+                      Telegram Storage
+                    </div>
+                    <div style={{ fontSize: '0.66rem', color: 'var(--text-light)' }}>
+                      MTProto Cloud Spool
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    sfx.playClick();
+                    setIsStoragePopupOpen(false);
+                  }}
+                  title="Close"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    color: 'var(--text-light)',
+                    padding: '0.2rem',
+                    borderRadius: 6,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--text-main)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-light)')}
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              {/* Total Storage Highlight Box */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)',
+                  border: '1px solid #bae6fd',
+                  borderRadius: 12,
+                  padding: '0.75rem 0.85rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.35rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#0369a1', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Total Consumed
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.65rem',
+                      fontWeight: 700,
+                      background: '#dcfce7',
+                      color: '#15803d',
+                      padding: '0.15rem 0.45rem',
+                      borderRadius: 9999,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 3,
+                    }}
+                  >
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e' }} />
+                    Unlimited
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.35rem' }}>
+                  <span style={{ fontSize: '1.45rem', fontWeight: 800, color: '#0c4a6e', fontFamily: 'var(--font-display)', letterSpacing: '-0.02em' }}>
+                    {formatSize(storageStats.totalBytes)}
+                  </span>
+                </div>
+
+                <div style={{ fontSize: '0.7rem', color: '#0284c7', lineHeight: 1.3 }}>
+                  Stored across {storageStats.totalFilesCount} {storageStats.totalFilesCount === 1 ? 'file' : 'files'} in Telegram Cloud
+                </div>
+
+                {/* Storage Segmented Bar */}
+                <div
+                  style={{
+                    height: 6,
+                    borderRadius: 9999,
+                    background: 'rgba(255,255,255,0.7)',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    gap: 1.5,
+                    marginTop: '0.25rem',
+                  }}
+                >
+                  {storageStats.totalBytes > 0 ? (
+                    <>
+                      {storageStats.imageBytes > 0 && (
+                        <div
+                          style={{
+                            width: `${(storageStats.imageBytes / storageStats.totalBytes) * 100}%`,
+                            background: '#0284c7',
+                          }}
+                          title={`Photos: ${formatSize(storageStats.imageBytes)}`}
+                        />
+                      )}
+                      {storageStats.videoBytes > 0 && (
+                        <div
+                          style={{
+                            width: `${(storageStats.videoBytes / storageStats.totalBytes) * 100}%`,
+                            background: '#8b5cf6',
+                          }}
+                          title={`Videos: ${formatSize(storageStats.videoBytes)}`}
+                        />
+                      )}
+                      {storageStats.docBytes > 0 && (
+                        <div
+                          style={{
+                            width: `${(storageStats.docBytes / storageStats.totalBytes) * 100}%`,
+                            background: '#10b981',
+                          }}
+                          title={`Documents: ${formatSize(storageStats.docBytes)}`}
+                        />
+                      )}
+                      {storageStats.audioBytes > 0 && (
+                        <div
+                          style={{
+                            width: `${(storageStats.audioBytes / storageStats.totalBytes) * 100}%`,
+                            background: '#f59e0b',
+                          }}
+                          title={`Audio: ${formatSize(storageStats.audioBytes)}`}
+                        />
+                      )}
+                      {storageStats.archiveBytes > 0 && (
+                        <div
+                          style={{
+                            width: `${(storageStats.archiveBytes / storageStats.totalBytes) * 100}%`,
+                            background: '#ec4899',
+                          }}
+                          title={`Archives: ${formatSize(storageStats.archiveBytes)}`}
+                        />
+                      )}
+                    </>
+                  ) : (
+                    <div style={{ width: '100%', background: '#cbd5e1' }} />
+                  )}
+                </div>
+              </div>
+
+              {/* Categories Breakdown List */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Storage by Category
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  {[
+                    { label: 'Photos', icon: ImageIcon, color: '#0284c7', count: storageStats.imageCount, size: storageStats.imageBytes, catId: 'images' },
+                    { label: 'Videos', icon: Film, color: '#8b5cf6', count: storageStats.videoCount, size: storageStats.videoBytes, catId: 'videos' },
+                    { label: 'Documents', icon: FileText, color: '#10b981', count: storageStats.docCount, size: storageStats.docBytes, catId: 'documents' },
+                    { label: 'Audio', icon: Music, color: '#f59e0b', count: storageStats.audioCount, size: storageStats.audioBytes, catId: 'audio' },
+                    { label: 'Archives', icon: Archive, color: '#ec4899', count: storageStats.archiveCount, size: storageStats.archiveBytes, catId: 'archives' },
+                  ].map((cat) => (
+                    <div
+                      key={cat.label}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        sfx.playClick();
+                        onSelectCategory(cat.catId);
+                        setIsStoragePopupOpen(false);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.3rem 0.45rem',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        fontSize: '0.74rem',
+                        transition: 'background 0.12s ease',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = '#f8fafc')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      title={`View ${cat.label}`}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: cat.color, flexShrink: 0 }} />
+                        <span style={{ color: 'var(--text-main)', fontWeight: 500 }}>{cat.label}</span>
+                        <span style={{ color: 'var(--text-light)', fontSize: '0.68rem' }}>({cat.count})</span>
+                      </div>
+                      <span style={{ fontWeight: 600, color: 'var(--text-muted)', fontSize: '0.72rem' }}>
+                        {formatSize(cat.size)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Status Footer */}
+              <div
+                style={{
+                  paddingTop: '0.5rem',
+                  borderTop: '1px solid var(--border-subtle)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '0.68rem',
+                  color: 'var(--text-light)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <ShieldCheck size={13} color="#16a34a" />
+                  <span style={{ color: '#16a34a', fontWeight: 600 }}>Telegram Encrypted</span>
+                </div>
+                <div style={{ fontWeight: 500 }}>
+                  {user?.phone || '+91 FreeBox'}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* User Profile / Avatar Button (Clickable to open popup) */}
+          <div
+            onClick={() => {
+              sfx.playClick();
+              setIsStoragePopupOpen((prev) => !prev);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.65rem',
+              cursor: 'pointer',
+              flex: 1,
+              minWidth: 0,
+              padding: '0.25rem 0.35rem',
+              borderRadius: 10,
+              transition: 'background 0.15s ease, transform 0.15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+            title="Click to view Telegram storage usage"
+          >
             <div
               style={{
-                width: 34,
-                height: 34,
+                width: 36,
+                height: 36,
                 borderRadius: '50%',
-                background: 'var(--tg-blue)',
+                background: isStoragePopupOpen
+                  ? 'linear-gradient(135deg, #0088cc 0%, #00a2ed 100%)'
+                  : 'var(--tg-blue)',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 fontWeight: 700,
-                fontSize: '0.82rem',
+                fontSize: '0.84rem',
+                boxShadow: isStoragePopupOpen
+                  ? '0 0 0 2.5px rgba(36, 129, 204, 0.4), 0 2px 8px rgba(36, 129, 204, 0.3)'
+                  : '0 2px 6px rgba(36, 129, 204, 0.25)',
+                transition: 'all 0.2s ease',
+                flexShrink: 0,
               }}
             >
               {user?.avatar || 'FD'}
             </div>
-            <div>
-              <div style={{ fontSize: '0.84rem', fontWeight: 600 }}>{user?.name || 'Telegram User'}</div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>{user?.phone || '+91 FreeBox'}</div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div
+                style={{
+                  fontSize: '0.84rem',
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  color: 'var(--text-main)',
+                }}
+              >
+                {user?.name || 'Telegram User'}
+              </div>
+              <div
+                style={{
+                  fontSize: '0.71rem',
+                  color: 'var(--text-light)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                <span style={{ fontWeight: 600, color: 'var(--tg-blue)' }}>
+                  {formatSize(storageStats.totalBytes)}
+                </span>
+                <span>•</span>
+                <span>{user?.phone || 'Telegram Cloud'}</span>
+              </div>
             </div>
           </div>
+
           <button
             onClick={() => {
               sfx.playClick();
@@ -708,6 +1096,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 0.15s ease',
+              flexShrink: 0,
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.color = '#ef4444';
@@ -1134,7 +1523,8 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                   Trash
                 </h3>
                 <p style={{ margin: 0, fontSize: '0.76rem', color: '#64748b' }}>
-                  {displayedFiles.length} {displayedFiles.length === 1 ? 'item' : 'items'} • Restore items or empty trash to permanently delete from Telegram
+                  {displayedFiles.length} {displayedFiles.length === 1 ? 'item' : 'items'}
+                  <span className="hide-on-mobile"> • Restore items or empty trash to permanently delete from Telegram</span>
                 </p>
               </div>
             </div>

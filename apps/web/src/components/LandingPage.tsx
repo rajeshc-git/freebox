@@ -77,6 +77,71 @@ export const fullCountryList: Country[] = [
   { code: '+51', name: 'Peru', flag: '🇵🇪' },
 ];
 
+const flagToIso = (flagEmoji: string): string => {
+  if (!flagEmoji) return '';
+  const codePoints = Array.from(flagEmoji).map((c) => c.codePointAt(0) || 0);
+  if (codePoints.length >= 2 && codePoints[0] >= 0x1f1e6 && codePoints[0] <= 0x1f1ff) {
+    return String.fromCharCode(codePoints[0] - 0x1f1e6 + 65, codePoints[1] - 0x1f1e6 + 65).toLowerCase();
+  }
+  return '';
+};
+
+export const CountryFlag: React.FC<{ flag: string; name: string; size?: 'sm' | 'md' }> = ({
+  flag,
+  name,
+  size = 'md',
+}) => {
+  const [imgError, setImgError] = useState(false);
+  const iso = flagToIso(flag);
+  const width = size === 'sm' ? 18 : 22;
+  const height = size === 'sm' ? 13 : 15;
+
+  if (iso && !imgError) {
+    return (
+      <img
+        src={`https://flagcdn.com/w40/${iso}.png`}
+        srcSet={`https://flagcdn.com/w80/${iso}.png 2x`}
+        alt={name}
+        onError={() => setImgError(true)}
+        style={{
+          width,
+          height,
+          borderRadius: 2.5,
+          objectFit: 'cover',
+          display: 'inline-block',
+          verticalAlign: 'middle',
+          boxShadow: '0 0 0 1px rgba(0,0,0,0.12)',
+          flexShrink: 0,
+        }}
+        loading="lazy"
+      />
+    );
+  }
+
+  // Clean fallback badge for offline or unsupported
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '0.68rem',
+        fontWeight: 700,
+        background: '#e2e8f0',
+        color: '#334155',
+        padding: '0 4px',
+        borderRadius: 3,
+        lineHeight: 1,
+        fontFamily: 'var(--font-mono)',
+        flexShrink: 0,
+        height: 16,
+      }}
+    >
+      {iso ? iso.toUpperCase() : flag}
+    </span>
+  );
+};
+
 export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendingOtp }) => {
   const [phone, setPhone] = useState('');
   const [selectedCountry, setSelectedCountry] = useState<Country>(fullCountryList[0]);
@@ -179,12 +244,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
                     setIsCountryOpen(!isCountryOpen);
                     setCountrySearch('');
                   }}
-                  style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer' }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.45rem',
+                    cursor: 'pointer',
+                    background: 'transparent',
+                    border: 'none',
+                    padding: '0.45rem 0.55rem',
+                    borderRadius: 8,
+                    color: 'var(--text-main)',
+                    flexShrink: 0,
+                  }}
                 >
-                  <span style={{ fontSize: '1.15rem' }}>{selectedCountry.flag}</span>
-                  <span style={{ fontWeight: 600 }}>{selectedCountry.code}</span>
-                  <ChevronDown size={14} />
+                  <CountryFlag flag={selectedCountry.flag} name={selectedCountry.name} />
+                  <span style={{ fontWeight: 600, fontSize: '0.92rem', lineHeight: 1 }}>{selectedCountry.code}</span>
+                  <ChevronDown size={14} color="#64748b" style={{ flexShrink: 0 }} />
                 </button>
+
+                {/* Vertical Divider */}
+                <div style={{ width: 1, height: 20, background: 'var(--border-subtle)', margin: '0 0.35rem', flexShrink: 0 }} />
 
                 <input
                   type="tel"
@@ -293,8 +372,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
                             }
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                              <span style={{ fontSize: '1.2rem' }}>{c.flag}</span>
-                              <span style={{ fontWeight: 500, color: '#0f172a' }}>{c.name}</span>
+                              <CountryFlag flag={c.flag} name={c.name} size="sm" />
+                              <span style={{ fontWeight: 500, color: '#0f172a', fontSize: '0.86rem' }}>{c.name}</span>
                             </div>
                             <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.82rem', color: '#64748b' }}>
                               {c.code}
