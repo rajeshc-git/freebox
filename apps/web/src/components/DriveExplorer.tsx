@@ -1058,24 +1058,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
               >
                 {user?.name || 'Telegram User'}
               </div>
-              <div
-                style={{
-                  fontSize: '0.71rem',
-                  color: 'var(--text-light)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                <span style={{ fontWeight: 600, color: 'var(--tg-blue)' }}>
-                  {formatSize(storageStats.totalBytes)}
-                </span>
-                <span>•</span>
-                <span>{user?.phone || 'Telegram Cloud'}</span>
-              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>{user?.phone || '+91 FreeBox'}</div>
             </div>
           </div>
 
