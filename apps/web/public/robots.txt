@@ -8,4 +8,4 @@ Allow: /#about
 Disallow: /api/
 
 # Sitemap Location
-Sitemap: https://freebox.cloud/sitemap.xml
+Sitemap: https://freebox.editingpdf.in/sitemap.xml
