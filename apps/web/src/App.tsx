@@ -99,6 +99,7 @@ export const App: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
   const activeWorkersRef = useRef<Set<string>>(new Set());
+  const abortMapRef = useRef<Map<string, () => void>>(new Map());
 
   const currentFolderIdRef = useRef(currentFolderId);
   const currentNavRef = useRef(currentNav);
@@ -159,8 +160,8 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('keydown', handleGlobalKey);
   }, []);
 
-  // Multi-Threaded Parallel Upload Worker Scheduler (Concurrency: 2 for 1-core VPS stability)
-  const CONCURRENCY_LIMIT = 2;
+  // Paced Sequential Upload Worker (Concurrency: 1 for zero-RAM/CPU socket stability)
+  const CONCURRENCY_LIMIT = 1;
 
   useEffect(() => {
     const queuedItems = uploadQueue.filter((item) => item.state === 'queued');
@@ -179,6 +180,7 @@ export const App: React.FC = () => {
     activeWorkersRef.current.add(item.id);
 
     const startTime = Date.now();
+    let lastActivityTime = Date.now();
 
     setUploadQueue((prev) =>
       prev.map((q) =>
@@ -193,12 +195,16 @@ export const App: React.FC = () => {
       )
     );
 
+    let watchdogTimer: ReturnType<typeof setInterval> | null = null;
+    let uploadAbortedByWatchdog = false;
+
     try {
       // Upload actual file bytes to Telegram via server
       const { promise, abort } = api.uploadFile(
         item.file,
         item.folderId,
         (progress) => {
+          lastActivityTime = Date.now();
           const elapsed = (Date.now() - startTime) / 1000;
           const bytesUploaded = (progress / 100) * item.size;
           const speedMBs = elapsed > 0 ? bytesUploaded / (1024 * 1024) / elapsed : 0;
@@ -224,7 +230,23 @@ export const App: React.FC = () => {
         },
       );
 
+      // Register abort handle for manual pause/cancel & watchdog
+      abortMapRef.current.set(item.id, abort);
+
+      // Automated Watchdog: detects Telegram MTProto stalls (>35s inactive) and self-heals
+      watchdogTimer = setInterval(() => {
+        const inactiveDuration = Date.now() - lastActivityTime;
+        if (inactiveDuration > 35000) {
+          console.warn(`[Auto-Watchdog] Upload "${item.name}" stalled for 35s. Auto-recovering...`);
+          uploadAbortedByWatchdog = true;
+          abort();
+          if (watchdogTimer) clearInterval(watchdogTimer);
+        }
+      }, 5000);
+
       const uploadedFile = await promise;
+
+      if (watchdogTimer) clearInterval(watchdogTimer);
 
       // Realtime UI state update without page refresh
       if (uploadedFile) {
@@ -256,12 +278,42 @@ export const App: React.FC = () => {
       sfx.playTelegramPop();
       await loadDriveData();
     } catch (err: any) {
+      if (watchdogTimer) clearInterval(watchdogTimer);
+
+      if (uploadAbortedByWatchdog) {
+        const currentRetries = item.retryCount || 0;
+        if (currentRetries < 2) {
+          console.log(`[Auto-Watchdog] Requeueing "${item.name}" (Retry ${currentRetries + 1}/2)`);
+          setUploadQueue((prev) =>
+            prev.map((q) =>
+              q.id === item.id
+                ? {
+                    ...q,
+                    state: 'queued',
+                    progress: 0,
+                    retryCount: currentRetries + 1,
+                    status: `Auto-retrying stalled upload (${currentRetries + 1}/2)...`,
+                  }
+                : q
+            )
+          );
+          return;
+        }
+      }
+
       console.error('Upload error', err);
       setUploadQueue((prev) =>
         prev.map((q) => (q.id === item.id ? { ...q, state: 'error', status: err.message || 'Upload failed' } : q))
       );
     } finally {
-      activeWorkersRef.current.delete(item.id);
+      if (watchdogTimer) clearInterval(watchdogTimer);
+      abortMapRef.current.delete(item.id);
+
+      // 400ms inter-file pacing cooldown: lets Telegram MTProto socket & disk I/O settle
+      setTimeout(() => {
+        activeWorkersRef.current.delete(item.id);
+        setUploadQueue((prev) => [...prev]);
+      }, 400);
     }
   };
 
@@ -500,6 +552,11 @@ export const App: React.FC = () => {
 
   // Queue Control Handlers
   const handlePauseItem = (id: string) => {
+    const abortFn = abortMapRef.current.get(id);
+    if (abortFn) {
+      abortFn();
+      abortMapRef.current.delete(id);
+    }
     activeWorkersRef.current.delete(id);
     setUploadQueue((prev) =>
       prev.map((q) => (q.id === id ? { ...q, state: 'paused', status: 'Paused', speedMBs: 0 } : q))
@@ -513,11 +570,24 @@ export const App: React.FC = () => {
   };
 
   const handleCancelItem = (id: string) => {
+    const abortFn = abortMapRef.current.get(id);
+    if (abortFn) {
+      abortFn();
+      abortMapRef.current.delete(id);
+    }
     activeWorkersRef.current.delete(id);
     setUploadQueue((prev) => prev.filter((q) => q.id !== id));
   };
 
   const handlePauseAll = () => {
+    abortMapRef.current.forEach((abortFn) => {
+      try {
+        abortFn();
+      } catch (e) {
+        console.error('Error aborting upload', e);
+      }
+    });
+    abortMapRef.current.clear();
     activeWorkersRef.current.clear();
     setUploadQueue((prev) =>
       prev.map((q) =>

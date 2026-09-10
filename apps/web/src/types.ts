@@ -80,6 +80,7 @@ export interface UploadQueueItem {
   speedMBs?: number;
   etaSeconds?: number;
   bytesUploaded?: number;
+  retryCount?: number;
 }
 
 export interface TelegramArchivedChat {
