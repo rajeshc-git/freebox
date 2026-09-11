@@ -778,6 +778,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onStartLogin, isSendin
         </div>
       </section>
 
+      {/* Product Hunt Embed Badge */}
+      <div className="landing-ph-banner">
+        <a
+          href="https://www.producthunt.com/products/freebox-2?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-freebox-2"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ph-badge-link"
+        >
+          <img
+            src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1246369&amp;theme=light&amp;t=1789131542325"
+            alt="FreeBox - Free Unlimited Secure Cloud Storage | Product Hunt"
+            width="250"
+            height="54"
+          />
+        </a>
+      </div>
+
       {/* Support Developer Modal */}
       {showSupportModal && (
         <div className="modal-backdrop" onClick={() => setShowSupportModal(false)}>

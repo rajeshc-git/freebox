@@ -372,6 +372,39 @@ body {
   letter-spacing: 0.04em;
 }
 
+/* Product Hunt Embed Banner */
+.landing-ph-banner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0 auto 3.5rem auto;
+  padding: 0 1.25rem;
+}
+
+.ph-badge-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  text-decoration: none;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), filter 0.2s ease;
+}
+
+.ph-badge-link:hover {
+  transform: translateY(-2px);
+  filter: drop-shadow(0 4px 12px rgba(255, 97, 84, 0.22));
+}
+
+.ph-badge-link img {
+  width: 250px;
+  height: 54px;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 250 / 54;
+  display: block;
+  border-radius: 12px;
+}
+
 /* Action Buttons (Drive Explorer) */
 .btn-action-primary {
   display: inline-flex;
@@ -1211,6 +1244,10 @@ body {
     justify-content: center !important;
     flex-wrap: wrap !important;
     gap: 1rem !important;
+  }
+  .landing-ph-banner {
+    margin: 0 auto 2.5rem auto !important;
+    padding: 0 1rem !important;
   }
 }
 
