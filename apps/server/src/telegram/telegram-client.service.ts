@@ -15,8 +15,8 @@ export class TelegramClientService {
   private readonly logger = new Logger(TelegramClientService.name);
   private clients = new Map<string, CachedClient>();
 
-  private readonly apiId = parseInt(process.env.TELEGRAM_API_ID || '6', 10);
-  private readonly apiHash = process.env.TELEGRAM_API_HASH || 'eb06d4abfb49dc3eeb1aeb98ae0f581e';
+  private readonly apiId = parseInt(process.env.TELEGRAM_API_ID || '', 10);
+  private readonly apiHash = process.env.TELEGRAM_API_HASH || '';
 
   constructor(private readonly redis: RedisService) {
     // Clean up idle clients every 5 minutes

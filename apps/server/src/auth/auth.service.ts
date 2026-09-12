@@ -17,9 +17,9 @@ export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private pendingAuths = new Map<string, PendingAuth>();
 
-  // Telegram MTProto client credentials (Android official client credentials or custom from env)
-  private readonly apiId = parseInt(process.env.TELEGRAM_API_ID || '6', 10);
-  private readonly apiHash = process.env.TELEGRAM_API_HASH || 'eb06d4abfb49dc3eeb1aeb98ae0f581e';
+  // Telegram MTProto client credentials from environment
+  private readonly apiId = parseInt(process.env.TELEGRAM_API_ID || '', 10);
+  private readonly apiHash = process.env.TELEGRAM_API_HASH || '';
 
   constructor(
     private readonly prisma: PrismaService,
@@ -50,6 +50,10 @@ export class AuthService {
     const cleanPhone = this.cleanPhoneNumber(phone);
     if (cleanPhone.length < 7) {
       throw new BadRequestException('Please enter a valid phone number with country code');
+    }
+
+    if (!this.apiId || !this.apiHash) {
+      throw new BadRequestException('TELEGRAM_API_ID and TELEGRAM_API_HASH are not configured on the server. Please check your environment variables.');
     }
 
     this.logger.log(`Requesting real Telegram MTProto verification code for ${cleanPhone}...`);

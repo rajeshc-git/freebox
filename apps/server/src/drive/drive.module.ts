@@ -8,7 +8,7 @@ import { TelegramModule } from '../telegram/telegram.module';
   imports: [
     TelegramModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'dock_jwt_secret_super_secure_key_2026',
+      secret: process.env.JWT_SECRET,
     }),
   ],
   controllers: [DriveController],

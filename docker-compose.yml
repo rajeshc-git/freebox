@@ -24,9 +24,9 @@ services:
       DATABASE_URL: "file:/app/data/dev.db"
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      JWT_SECRET: "dock_jwt_secret_super_secure_key_2026"
-      # TELEGRAM_API_ID: "6"
-      # TELEGRAM_API_HASH: "eb06d4abfb49dc3eeb1aeb98ae0f581e"
+      JWT_SECRET: ${JWT_SECRET}
+      TELEGRAM_API_ID: ${TELEGRAM_API_ID}
+      TELEGRAM_API_HASH: ${TELEGRAM_API_HASH}
     depends_on:
       - redis
     volumes:

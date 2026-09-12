@@ -167,9 +167,9 @@ Create a `.env` file in `apps/server/` or pass them via `docker-compose.yml`:
 | `DATABASE_URL` | SQLite database file path | `file:./dev.db` |
 | `REDIS_HOST` | Redis host | `localhost` / `redis` |
 | `REDIS_PORT` | Redis port | `6379` |
-| `JWT_SECRET` | Secret key for JWT session tokens | `dock_jwt_secret_super_secure_key_2026` |
-| `TELEGRAM_API_ID` | Telegram API App ID from [my.telegram.org](https://my.telegram.org) | Optional |
-| `TELEGRAM_API_HASH` | Telegram API App Hash from [my.telegram.org](https://my.telegram.org) | Optional |
+| `JWT_SECRET` | Secret key for JWT session tokens (64-char random hex string) | Required |
+| `TELEGRAM_API_ID` | Telegram API App ID from [my.telegram.org](https://my.telegram.org) | Required |
+| `TELEGRAM_API_HASH` | Telegram API App Hash from [my.telegram.org](https://my.telegram.org) | Required |
 
 ---
 
