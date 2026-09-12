@@ -36,9 +36,10 @@ func NewHandler(db *gorm.DB, tgPool *telegram.ClientPool) *Handler {
 // Folders
 func (h *Handler) GetFolders(c *gin.Context) {
 	parentID := c.Query("parentId")
+	userID := middleware.GetUserID(c)
 	var folders []database.Folder
 
-	query := h.db.Order("createdAt DESC")
+	query := h.db.Where("userId = ?", userID).Order("createdAt DESC")
 	if parentID != "" && parentID != "all" {
 		if parentID == "root" || parentID == "null" {
 			query = query.Where("parentId IS NULL")
@@ -55,8 +56,8 @@ func (h *Handler) GetFolders(c *gin.Context) {
 	// Attach counts for frontend
 	for i := range folders {
 		var fileCount, childCount int64
-		h.db.Model(&database.File{}).Where("folderId = ? AND isTrashed = ?", folders[i].ID, false).Count(&fileCount)
-		h.db.Model(&database.Folder{}).Where("parentId = ?", folders[i].ID).Count(&childCount)
+		h.db.Model(&database.File{}).Where("folderId = ? AND isTrashed = ? AND userId = ?", folders[i].ID, false, userID).Count(&fileCount)
+		h.db.Model(&database.Folder{}).Where("parentId = ? AND userId = ?", folders[i].ID, userID).Count(&childCount)
 		folders[i].Count = &database.FolderCount{
 			Files:    fileCount,
 			Children: childCount,
@@ -88,11 +89,13 @@ func (h *Handler) CreateFolder(c *gin.Context) {
 		parentID = body.ParentID
 	}
 
+	userID := middleware.GetUserID(c)
 	folder := database.Folder{
 		ID:        uuid.New().String(),
 		Name:      strings.TrimSpace(body.Name),
 		Color:     color,
 		ParentID:  parentID,
+		UserID:    &userID,
 		CreatedAt: database.FlexibleTime(time.Now()),
 		UpdatedAt: database.FlexibleTime(time.Now()),
 	}
@@ -107,6 +110,7 @@ func (h *Handler) CreateFolder(c *gin.Context) {
 
 func (h *Handler) RenameFolder(c *gin.Context) {
 	id := c.Param("id")
+	userID := middleware.GetUserID(c)
 	var body struct {
 		Name string `json:"name" binding:"required"`
 	}
@@ -117,7 +121,7 @@ func (h *Handler) RenameFolder(c *gin.Context) {
 	}
 
 	var folder database.Folder
-	if err := h.db.Where("id = ?", id).First(&folder).Error; err != nil {
+	if err := h.db.Where("id = ? AND userId = ?", id, userID).First(&folder).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Folder not found"})
 		return
 	}
@@ -131,34 +135,35 @@ func (h *Handler) RenameFolder(c *gin.Context) {
 
 func (h *Handler) DeleteFolder(c *gin.Context) {
 	id := c.Param("id")
+	userID := middleware.GetUserID(c)
 	var folder database.Folder
-	if err := h.db.Where("id = ?", id).First(&folder).Error; err != nil {
+	if err := h.db.Where("id = ? AND userId = ?", id, userID).First(&folder).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Folder not found"})
 		return
 	}
 
 	// Soft delete files in this folder
-	h.db.Model(&database.File{}).Where("folderId = ?", id).Update("isTrashed", true)
+	h.db.Model(&database.File{}).Where("folderId = ? AND userId = ?", id, userID).Update("isTrashed", true)
 
 	// Delete subfolders recursively
 	var children []database.Folder
-	h.db.Where("parentId = ?", id).Find(&children)
+	h.db.Where("parentId = ? AND userId = ?", id, userID).Find(&children)
 	for _, child := range children {
-		h.deleteFolderRecursive(child.ID)
+		h.deleteFolderRecursive(child.ID, userID)
 	}
 
 	h.db.Delete(&folder)
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
-func (h *Handler) deleteFolderRecursive(id string) {
-	h.db.Model(&database.File{}).Where("folderId = ?", id).Update("isTrashed", true)
+func (h *Handler) deleteFolderRecursive(id string, userID string) {
+	h.db.Model(&database.File{}).Where("folderId = ? AND userId = ?", id, userID).Update("isTrashed", true)
 	var children []database.Folder
-	h.db.Where("parentId = ?", id).Find(&children)
+	h.db.Where("parentId = ? AND userId = ?", id, userID).Find(&children)
 	for _, child := range children {
-		h.deleteFolderRecursive(child.ID)
+		h.deleteFolderRecursive(child.ID, userID)
 	}
-	h.db.Where("id = ?", id).Delete(&database.Folder{})
+	h.db.Where("id = ? AND userId = ?", id, userID).Delete(&database.Folder{})
 }
 
 // Files
@@ -167,8 +172,9 @@ func (h *Handler) GetFiles(c *gin.Context) {
 	category := c.Query("category")
 	search := c.Query("search")
 	nav := c.Query("nav") // 'all' | 'recent' | 'starred' | 'trash'
+	userID := middleware.GetUserID(c)
 
-	query := h.db.Order("createdAt DESC")
+	query := h.db.Where("userId = ?", userID).Order("createdAt DESC")
 
 	if nav == "trash" {
 		query = query.Where("isTrashed = ?", true)
@@ -208,11 +214,11 @@ func (h *Handler) GetFiles(c *gin.Context) {
 		return
 	}
 
-	// Filter paired live photo files from My Files and normal categories
+	// Filter paired live photo files from My Files and normal categories for THIS user
 	finalFiles := files
 	if category != "live_photo" && nav != "trash" {
 		var allMedia []database.File
-		h.db.Where("isTrashed = ? AND type IN ?", false, []string{"image", "video"}).Select("name", "mimeType").Find(&allMedia)
+		h.db.Where("userId = ? AND isTrashed = ? AND type IN ?", userID, false, []string{"image", "video"}).Select("name", "mimeType").Find(&allMedia)
 		images := make(map[string]bool)
 		videos := make(map[string]bool)
 		for _, f := range allMedia {
@@ -257,8 +263,9 @@ func (h *Handler) GetFiles(c *gin.Context) {
 }
 
 func (h *Handler) GetStorageMetrics(c *gin.Context) {
+	userID := middleware.GetUserID(c)
 	var files []database.File
-	h.db.Find(&files)
+	h.db.Where("userId = ?", userID).Find(&files)
 
 	var totalBytes int64
 	var trashCount int64
@@ -353,6 +360,7 @@ func (h *Handler) UploadFile(c *gin.Context) {
 		targetFolderID = &folderID
 	}
 
+	userID := middleware.GetUserID(c)
 	phone := middleware.GetUserPhone(c)
 
 	// Spool incoming file to disk temporary directory
@@ -390,6 +398,7 @@ func (h *Handler) UploadFile(c *gin.Context) {
 		MimeType:        fileHeader.Header.Get("Content-Type"),
 		Type:            fileType,
 		FolderID:        targetFolderID,
+		UserID:          &userID,
 		TelegramMsgID:   uploadedMsg.MsgID,
 		TelegramStatus:  "read",
 		StorageProvider: "telegram",
@@ -411,10 +420,11 @@ func (h *Handler) UploadFile(c *gin.Context) {
 
 func (h *Handler) StreamFile(c *gin.Context) {
 	id := c.Param("id")
+	userID := middleware.GetUserID(c)
 	phone := middleware.GetUserPhone(c)
 
 	var file database.File
-	if err := h.db.Where("id = ?", id).First(&file).Error; err != nil {
+	if err := h.db.Where("id = ? AND userId = ?", id, userID).First(&file).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "File not found"})
 		return
 	}
@@ -436,10 +446,11 @@ func (h *Handler) StreamFile(c *gin.Context) {
 
 func (h *Handler) DownloadFile(c *gin.Context) {
 	id := c.Param("id")
+	userID := middleware.GetUserID(c)
 	phone := middleware.GetUserPhone(c)
 
 	var file database.File
-	if err := h.db.Where("id = ?", id).First(&file).Error; err != nil {
+	if err := h.db.Where("id = ? AND userId = ?", id, userID).First(&file).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "File not found"})
 		return
 	}
@@ -467,8 +478,9 @@ func (h *Handler) DownloadBatch(c *gin.Context) {
 		return
 	}
 
+	userID := middleware.GetUserID(c)
 	var files []database.File
-	h.db.Where("id IN ? AND isTrashed = ?", ids, false).Find(&files)
+	h.db.Where("id IN ? AND userId = ? AND isTrashed = ?", ids, userID, false).Find(&files)
 	if len(files) == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"message": "No valid files found"})
 		return
@@ -481,13 +493,14 @@ func (h *Handler) DownloadBatch(c *gin.Context) {
 	zipWriter := zip.NewWriter(c.Writer)
 	defer zipWriter.Close()
 
+	phone := middleware.GetUserPhone(c)
 	for _, file := range files {
 		writer, err := zipWriter.Create(file.Name)
 		if err != nil {
 			continue
 		}
 		// Stream media pipe
-		h.tgPool.DownloadMediaPipe(c.Request.Context(), "", file.TelegramMsgID, writer)
+		h.tgPool.DownloadMediaPipe(c.Request.Context(), phone, file.TelegramMsgID, writer)
 	}
 }
 
@@ -560,6 +573,7 @@ func (h *Handler) DownloadPublicFile(c *gin.Context) {
 
 func (h *Handler) MoveFile(c *gin.Context) {
 	id := c.Param("id")
+	userID := middleware.GetUserID(c)
 	var body struct {
 		FolderID *string `json:"folderId"`
 	}
@@ -570,11 +584,12 @@ func (h *Handler) MoveFile(c *gin.Context) {
 		targetFolderID = body.FolderID
 	}
 
-	h.db.Model(&database.File{}).Where("id = ?", id).Update("folderId", targetFolderID)
+	h.db.Model(&database.File{}).Where("id = ? AND userId = ?", id, userID).Update("folderId", targetFolderID)
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func (h *Handler) MoveFiles(c *gin.Context) {
+	userID := middleware.GetUserID(c)
 	var body struct {
 		IDs      []string `json:"ids"`
 		FolderID *string  `json:"folderId"`
@@ -589,14 +604,15 @@ func (h *Handler) MoveFiles(c *gin.Context) {
 		targetFolderID = body.FolderID
 	}
 
-	h.db.Model(&database.File{}).Where("id IN ?", body.IDs).Update("folderId", targetFolderID)
+	h.db.Model(&database.File{}).Where("id IN ? AND userId = ?", body.IDs, userID).Update("folderId", targetFolderID)
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func (h *Handler) ToggleStar(c *gin.Context) {
 	id := c.Param("id")
+	userID := middleware.GetUserID(c)
 	var file database.File
-	if err := h.db.Where("id = ?", id).First(&file).Error; err != nil {
+	if err := h.db.Where("id = ? AND userId = ?", id, userID).First(&file).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "File not found"})
 		return
 	}
@@ -607,9 +623,10 @@ func (h *Handler) ToggleStar(c *gin.Context) {
 }
 
 func (h *Handler) EmptyTrash(c *gin.Context) {
+	userID := middleware.GetUserID(c)
 	phone := middleware.GetUserPhone(c)
 	var files []database.File
-	h.db.Where("isTrashed = ?", true).Find(&files)
+	h.db.Where("isTrashed = ? AND userId = ?", true, userID).Find(&files)
 
 	var msgIDs []int
 	for _, f := range files {
@@ -622,11 +639,12 @@ func (h *Handler) EmptyTrash(c *gin.Context) {
 		h.tgPool.DeleteMessages(c.Request.Context(), phone, msgIDs)
 	}
 
-	h.db.Where("isTrashed = ?", true).Delete(&database.File{})
+	h.db.Where("isTrashed = ? AND userId = ?", true, userID).Delete(&database.File{})
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func (h *Handler) RestoreBatch(c *gin.Context) {
+	userID := middleware.GetUserID(c)
 	var body struct {
 		IDs []string `json:"ids"`
 	}
@@ -635,11 +653,12 @@ func (h *Handler) RestoreBatch(c *gin.Context) {
 		return
 	}
 
-	h.db.Model(&database.File{}).Where("id IN ?", body.IDs).Update("isTrashed", false)
+	h.db.Model(&database.File{}).Where("id IN ? AND userId = ?", body.IDs, userID).Update("isTrashed", false)
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func (h *Handler) DeleteBatchPermanent(c *gin.Context) {
+	userID := middleware.GetUserID(c)
 	var body struct {
 		IDs []string `json:"ids"`
 	}
@@ -650,7 +669,7 @@ func (h *Handler) DeleteBatchPermanent(c *gin.Context) {
 
 	phone := middleware.GetUserPhone(c)
 	var files []database.File
-	h.db.Where("id IN ?", body.IDs).Find(&files)
+	h.db.Where("id IN ? AND userId = ?", body.IDs, userID).Find(&files)
 
 	var msgIDs []int
 	for _, f := range files {
@@ -663,17 +682,18 @@ func (h *Handler) DeleteBatchPermanent(c *gin.Context) {
 		h.tgPool.DeleteMessages(c.Request.Context(), phone, msgIDs)
 	}
 
-	h.db.Where("id IN ?", body.IDs).Delete(&database.File{})
+	h.db.Where("id IN ? AND userId = ?", body.IDs, userID).Delete(&database.File{})
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func (h *Handler) DeleteFile(c *gin.Context) {
 	id := c.Param("id")
 	permanent := c.Query("permanent") == "true"
+	userID := middleware.GetUserID(c)
 	phone := middleware.GetUserPhone(c)
 
 	var file database.File
-	if err := h.db.Where("id = ?", id).First(&file).Error; err != nil {
+	if err := h.db.Where("id = ? AND userId = ?", id, userID).First(&file).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "File not found"})
 		return
 	}
@@ -693,8 +713,9 @@ func (h *Handler) DeleteFile(c *gin.Context) {
 
 func (h *Handler) RestoreFile(c *gin.Context) {
 	id := c.Param("id")
+	userID := middleware.GetUserID(c)
 	var file database.File
-	if err := h.db.Where("id = ?", id).First(&file).Error; err != nil {
+	if err := h.db.Where("id = ? AND userId = ?", id, userID).First(&file).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "File not found"})
 		return
 	}

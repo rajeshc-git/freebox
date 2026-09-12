@@ -67,7 +67,9 @@ export const api = {
   // Folders
   async getFolders(parentId?: string | null): Promise<Folder[]> {
     const url = parentId !== undefined ? `${API_BASE}/drive/folders?parentId=${parentId || 'root'}` : `${API_BASE}/drive/folders`;
-    const res = await fetch(url);
+    const res = await fetch(url, {
+      headers: authHeaders(),
+    });
     if (!res.ok) return [];
     return res.json();
   },
@@ -75,7 +77,7 @@ export const api = {
   async createFolder(name: string, parentId?: string | null, color = '#3b82f6'): Promise<Folder> {
     const res = await fetch(`${API_BASE}/drive/folders`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ name, parentId: parentId || null, color }),
     });
     return res.json();
@@ -116,7 +118,9 @@ export const api = {
     if (params.search) query.set('search', params.search);
     if (params.nav) query.set('nav', params.nav);
 
-    const res = await fetch(`${API_BASE}/drive/files?${query.toString()}`);
+    const res = await fetch(`${API_BASE}/drive/files?${query.toString()}`, {
+      headers: authHeaders(),
+    });
     if (!res.ok) return [];
     return res.json();
   },
@@ -216,6 +220,7 @@ export const api = {
   async toggleStar(fileId: string): Promise<DriveFile> {
     const res = await fetch(`${API_BASE}/drive/files/${fileId}/star`, {
       method: 'PATCH',
+      headers: authHeaders(),
     });
     return res.json();
   },
@@ -223,7 +228,7 @@ export const api = {
   async moveFile(fileId: string, folderId: string | null): Promise<DriveFile> {
     const res = await fetch(`${API_BASE}/drive/files/${fileId}/move`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ folderId }),
     });
     return res.json();
@@ -232,7 +237,7 @@ export const api = {
   async moveFiles(ids: string[], folderId: string | null): Promise<void> {
     await fetch(`${API_BASE}/drive/files/batch/move`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
       body: JSON.stringify({ ids, folderId }),
     });
   },
@@ -277,7 +282,9 @@ export const api = {
   },
 
   async getStorageMetrics(): Promise<StorageMetrics> {
-    const res = await fetch(`${API_BASE}/drive/storage-metrics`);
+    const res = await fetch(`${API_BASE}/drive/storage-metrics`, {
+      headers: authHeaders(),
+    });
     if (!res.ok) {
       return {
         totalFiles: 0,
@@ -293,7 +300,9 @@ export const api = {
 
   // Telegram Saved Messages
   async getTelegramSavedMessages() {
-    const res = await fetch(`${API_BASE}/telegram/saved-messages`);
+    const res = await fetch(`${API_BASE}/telegram/saved-messages`, {
+      headers: authHeaders(),
+    });
     if (!res.ok) return { totalMessages: 0, messages: [] };
     return res.json();
   },

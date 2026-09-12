@@ -9,9 +9,9 @@ export class TelegramService {
     private readonly telegramClient: TelegramClientService,
   ) {}
 
-  async getSavedMessages() {
+  async getSavedMessages(userId: string) {
     const files = await this.prisma.file.findMany({
-      where: { isTrashed: false },
+      where: { isTrashed: false, userId },
       orderBy: { createdAt: 'desc' },
     });
 

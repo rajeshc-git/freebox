@@ -48,26 +48,28 @@ export class DriveController {
     private readonly jwtService: JwtService,
   ) {}
 
-
-
   /**
-   * Extract user phone from JWT Bearer token or query param.
+   * Extract user ID and phone from JWT Bearer token or query param.
    */
-  private getUserPhone(authHeader?: string, queryToken?: string): string {
+  private getAuthUser(authHeader?: string, queryToken?: string): { userId: string; phone: string } {
     // Try Authorization header first
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
         const token = authHeader.split(' ')[1];
-        const decoded = this.jwtService.verify(token);
-        return decoded.phone;
+        const decoded: any = this.jwtService.verify(token);
+        if (decoded && (decoded.sub || decoded.phone)) {
+          return { userId: decoded.sub, phone: decoded.phone };
+        }
       } catch {}
     }
 
     // Fall back to query param token (for <img>, <video>, <audio> src)
     if (queryToken) {
       try {
-        const decoded = this.jwtService.verify(queryToken);
-        return decoded.phone;
+        const decoded: any = this.jwtService.verify(queryToken);
+        if (decoded && (decoded.sub || decoded.phone)) {
+          return { userId: decoded.sub, phone: decoded.phone };
+        }
       } catch {}
     }
 
@@ -75,52 +77,70 @@ export class DriveController {
   }
 
   @Get('folders')
-  async getFolders(@Query('parentId') parentId?: string) {
-    return this.driveService.getFolders(parentId);
+  async getFolders(
+    @Headers('authorization') authHeader: string,
+    @Query('parentId') parentId?: string,
+  ) {
+    const { userId } = this.getAuthUser(authHeader);
+    return this.driveService.getFolders(userId, parentId);
   }
 
   @Post('folders')
-  async createFolder(@Body() body: { name: string; parentId?: string; color?: string }) {
+  async createFolder(
+    @Headers('authorization') authHeader: string,
+    @Body() body: { name: string; parentId?: string; color?: string },
+  ) {
     if (!body.name || !body.name.trim()) {
       throw new BadRequestException('Folder name is required');
     }
-    return this.driveService.createFolder(body.name.trim(), body.parentId, body.color);
+    const { userId } = this.getAuthUser(authHeader);
+    return this.driveService.createFolder(userId, body.name.trim(), body.parentId, body.color);
   }
 
   @Patch('folders/:id')
   async renameFolder(
+    @Headers('authorization') authHeader: string,
     @Param('id') id: string,
     @Body('name') name: string,
   ) {
     if (!name || !name.trim()) {
       throw new BadRequestException('Folder name is required');
     }
-    return this.driveService.renameFolder(id, name.trim());
+    const { userId } = this.getAuthUser(authHeader);
+    return this.driveService.renameFolder(userId, id, name.trim());
   }
 
   @Delete('folders/:id')
-  async deleteFolder(@Param('id') id: string) {
-    return this.driveService.deleteFolder(id);
+  async deleteFolder(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+  ) {
+    const { userId } = this.getAuthUser(authHeader);
+    return this.driveService.deleteFolder(userId, id);
   }
 
   @Get('files')
   async getFiles(
+    @Headers('authorization') authHeader: string,
     @Query('folderId') folderId?: string,
     @Query('category') category?: string,
     @Query('search') search?: string,
     @Query('nav') nav?: string,
   ) {
-    return this.driveService.getFiles({ folderId, category, search, nav });
+    const { userId } = this.getAuthUser(authHeader);
+    return this.driveService.getFiles(userId, { folderId, category, search, nav });
   }
 
   @Get('storage/metrics')
-  async getStorageMetrics() {
-    return this.driveService.getStorageMetrics();
+  async getStorageMetrics(@Headers('authorization') authHeader: string) {
+    const { userId } = this.getAuthUser(authHeader);
+    return this.driveService.getStorageMetrics(userId);
   }
 
   @Get('storage-metrics')
-  async getStorageMetricsAlias() {
-    return this.driveService.getStorageMetrics();
+  async getStorageMetricsAlias(@Headers('authorization') authHeader: string) {
+    const { userId } = this.getAuthUser(authHeader);
+    return this.driveService.getStorageMetrics(userId);
   }
 
   /**
@@ -142,11 +162,12 @@ export class DriveController {
       throw new BadRequestException('No file provided');
     }
 
-    const userPhone = this.getUserPhone(authHeader);
+    const { userId, phone } = this.getAuthUser(authHeader);
     const targetFolderId = folderId === 'root' || !folderId ? null : folderId;
 
     return this.driveService.uploadFileToTelegram(
-      userPhone,
+      userId,
+      phone,
       {
         filePath: file.path,
         fileName: file.originalname,
@@ -172,8 +193,8 @@ export class DriveController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const userPhone = this.getUserPhone(authHeader, queryToken);
-    await this.driveService.streamFile(id, userPhone, req, res, false);
+    const { userId, phone } = this.getAuthUser(authHeader, queryToken);
+    await this.driveService.streamFile(id, userId, phone, req, res, false);
   }
 
   /**
@@ -186,13 +207,13 @@ export class DriveController {
     @Query('token') queryToken: string,
     @Res() res: Response,
   ) {
-    const userPhone = this.getUserPhone(authHeader, queryToken);
+    const { userId, phone } = this.getAuthUser(authHeader, queryToken);
     const ids = idsParam ? idsParam.split(',').filter(Boolean) : [];
     if (!ids.length) {
       throw new BadRequestException('No file IDs specified for batch download');
     }
 
-    await this.driveService.downloadBatchZip(ids, userPhone, res);
+    await this.driveService.downloadBatchZip(ids, userId, phone, res);
   }
 
   /**
@@ -207,8 +228,8 @@ export class DriveController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const userPhone = this.getUserPhone(authHeader, queryToken);
-    await this.driveService.streamFile(id, userPhone, req, res, true);
+    const { userId, phone } = this.getAuthUser(authHeader, queryToken);
+    await this.driveService.streamFile(id, userId, phone, req, res, true);
   }
 
   /**
@@ -250,67 +271,72 @@ export class DriveController {
 
   @Patch('files/:id/move')
   async moveFile(
+    @Headers('authorization') authHeader: string,
     @Param('id') id: string,
     @Body() body: { folderId: string | null },
   ) {
-    return this.driveService.moveFile(id, body.folderId);
+    const { userId } = this.getAuthUser(authHeader);
+    return this.driveService.moveFile(userId, id, body.folderId);
   }
 
   @Patch('files/batch/move')
   async moveFiles(
+    @Headers('authorization') authHeader: string,
     @Body() body: { ids: string[]; folderId: string | null },
   ) {
-    return this.driveService.moveFiles(body.ids, body.folderId);
+    const { userId } = this.getAuthUser(authHeader);
+    return this.driveService.moveFiles(userId, body.ids, body.folderId);
   }
 
   @Patch('files/:id/star')
-  async toggleStar(@Param('id') id: string) {
-    return this.driveService.toggleStar(id);
+  async toggleStar(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+  ) {
+    const { userId } = this.getAuthUser(authHeader);
+    return this.driveService.toggleStar(userId, id);
   }
 
   @Delete('trash/empty')
-  async emptyTrash(@Headers('authorization') authHeader?: string) {
-    let userPhone: string | undefined;
-    try {
-      if (authHeader) userPhone = this.getUserPhone(authHeader);
-    } catch {}
-    return this.driveService.emptyTrash(userPhone);
+  async emptyTrash(@Headers('authorization') authHeader: string) {
+    const { userId, phone } = this.getAuthUser(authHeader);
+    return this.driveService.emptyTrash(userId, phone);
   }
 
   @Post('trash/restore-batch')
-  async restoreBatch(@Body('ids') ids: string[]) {
-    return this.driveService.restoreFilesBatch(ids);
+  async restoreBatch(
+    @Headers('authorization') authHeader: string,
+    @Body('ids') ids: string[],
+  ) {
+    const { userId } = this.getAuthUser(authHeader);
+    return this.driveService.restoreFilesBatch(userId, ids);
   }
 
   @Delete('trash/delete-batch')
   async deleteBatchPermanent(
+    @Headers('authorization') authHeader: string,
     @Body('ids') ids: string[],
-    @Headers('authorization') authHeader?: string,
   ) {
-    let userPhone: string | undefined;
-    try {
-      if (authHeader) userPhone = this.getUserPhone(authHeader);
-    } catch {}
-    return this.driveService.deleteFilesBatch(ids, true, userPhone);
+    const { userId, phone } = this.getAuthUser(authHeader);
+    return this.driveService.deleteFilesBatch(userId, ids, true, phone);
   }
 
   @Delete('files/:id')
   async deleteFile(
+    @Headers('authorization') authHeader: string,
     @Param('id') id: string,
     @Query('permanent') permanent?: string,
-    @Headers('authorization') authHeader?: string,
   ) {
-    let userPhone: string | undefined;
-    try {
-      if (authHeader) userPhone = this.getUserPhone(authHeader);
-    } catch {
-      // Delete from DB only if no valid auth
-    }
-    return this.driveService.deleteFile(id, permanent === 'true', userPhone);
+    const { userId, phone } = this.getAuthUser(authHeader);
+    return this.driveService.deleteFile(userId, id, permanent === 'true', phone);
   }
 
   @Post('files/:id/restore')
-  async restoreFile(@Param('id') id: string) {
-    return this.driveService.restoreFile(id);
+  async restoreFile(
+    @Headers('authorization') authHeader: string,
+    @Param('id') id: string,
+  ) {
+    const { userId } = this.getAuthUser(authHeader);
+    return this.driveService.restoreFile(userId, id);
   }
 }

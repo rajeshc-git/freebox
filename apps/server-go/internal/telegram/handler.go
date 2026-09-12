@@ -24,8 +24,9 @@ func NewHandler(db *gorm.DB, tgPool *ClientPool) *Handler {
 }
 
 func (h *Handler) GetSavedMessages(c *gin.Context) {
+	userID := middleware.GetUserID(c)
 	var files []database.File
-	h.db.Where("isTrashed = ?", false).Order("createdAt DESC").Find(&files)
+	h.db.Where("isTrashed = ? AND userId = ?", false, userID).Order("createdAt DESC").Find(&files)
 
 	messages := make([]gin.H, len(files))
 	for i, f := range files {

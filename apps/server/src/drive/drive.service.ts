@@ -15,8 +15,8 @@ export class DriveService {
     private readonly telegramClient: TelegramClientService,
   ) {}
 
-  async getFolders(parentId?: string) {
-    const where: any = {};
+  async getFolders(userId: string, parentId?: string) {
+    const where: any = { userId };
     if (parentId !== undefined && parentId !== 'all') {
       where.parentId = parentId === 'root' || parentId === 'null' || !parentId ? null : parentId;
     }
@@ -25,25 +25,29 @@ export class DriveService {
       where,
       include: {
         _count: {
-          select: { files: true, children: true },
+          select: {
+            files: { where: { isTrashed: false } },
+            children: true,
+          },
         },
       },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async createFolder(name: string, parentId?: string, color = '#3b82f6') {
+  async createFolder(userId: string, name: string, parentId?: string, color = '#3b82f6') {
     return this.prisma.folder.create({
       data: {
         name,
         parentId: parentId === 'root' || parentId === 'null' || !parentId ? null : parentId,
         color,
+        userId,
       },
     });
   }
 
-  async renameFolder(id: string, name: string) {
-    const folder = await this.prisma.folder.findUnique({ where: { id } });
+  async renameFolder(userId: string, id: string, name: string) {
+    const folder = await this.prisma.folder.findFirst({ where: { id, userId } });
     if (!folder) throw new NotFoundException('Folder not found');
 
     return this.prisma.folder.update({
@@ -52,20 +56,20 @@ export class DriveService {
     });
   }
 
-  async deleteFolder(id: string) {
-    const folder = await this.prisma.folder.findUnique({ where: { id } });
+  async deleteFolder(userId: string, id: string) {
+    const folder = await this.prisma.folder.findFirst({ where: { id, userId } });
     if (!folder) throw new NotFoundException('Folder not found');
 
     // Soft delete files in this folder by moving them to trash
     await this.prisma.file.updateMany({
-      where: { folderId: id },
+      where: { folderId: id, userId },
       data: { isTrashed: true },
     });
 
     // Delete subfolders recursively
-    const children = await this.prisma.folder.findMany({ where: { parentId: id } });
+    const children = await this.prisma.folder.findMany({ where: { parentId: id, userId } });
     for (const child of children) {
-      await this.deleteFolder(child.id);
+      await this.deleteFolder(userId, child.id);
     }
 
     return this.prisma.folder.delete({
@@ -73,13 +77,13 @@ export class DriveService {
     });
   }
 
-  async getFiles(query: {
+  async getFiles(userId: string, query: {
     folderId?: string;
     category?: string;
     search?: string;
     nav?: string; // 'all' | 'recent' | 'starred' | 'trash'
   }) {
-    const where: any = {};
+    const where: any = { userId };
 
     if (query.nav === 'trash') {
       where.isTrashed = true;
@@ -112,9 +116,13 @@ export class DriveService {
     }
 
     if (query.search) {
-      where.OR = [
-        { name: { contains: query.search } },
-        { spoolHash: { contains: query.search } },
+      where.AND = [
+        {
+          OR: [
+            { name: { contains: query.search } },
+            { spoolHash: { contains: query.search } },
+          ],
+        },
       ];
     }
 
@@ -123,11 +131,11 @@ export class DriveService {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Exclude paired Live Photo files (.heic/.jpg + .mov/.mp4) from normal categories and My Files
+    // Exclude paired Live Photo files (.heic/.jpg + .mov/.mp4) from normal categories and My Files for THIS user
     let finalFiles = files;
     if (query.category !== 'live_photo' && query.nav !== 'trash') {
       const allMedia = await this.prisma.file.findMany({
-        where: { isTrashed: false, type: { in: ['image', 'video'] } },
+        where: { userId, isTrashed: false, type: { in: ['image', 'video'] } },
         select: { name: true, mimeType: true },
       });
       const images = new Set<string>();
@@ -166,6 +174,7 @@ export class DriveService {
    * Accepts filePath (for disk-spooled zero-RAM upload) or Buffer.
    */
   async uploadFileToTelegram(
+    userId: string,
     userPhone: string,
     fileSource:
       | {
@@ -200,7 +209,7 @@ export class DriveService {
     const spoolHash = this.generateSpoolHash(fileName);
     const type = this.detectType(fileName, mimeType);
 
-    this.logger.log(`Uploading "${fileName}" (${fileSize} bytes) to Telegram for ${userPhone}...`);
+    this.logger.log(`Uploading "${fileName}" (${fileSize} bytes) to Telegram for ${userPhone} (User: ${userId})...`);
 
     try {
       // Upload to Telegram Saved Messages using disk-spooled file
@@ -215,7 +224,7 @@ export class DriveService {
       // Extract file metadata from Telegram response
       const fileInfo = this.telegramClient.extractFileInfo(message);
 
-      // Create file record in database with real Telegram references
+      // Create file record in database with real Telegram references and userId
       const file = await this.prisma.file.create({
         data: {
           name: fileName,
@@ -224,6 +233,7 @@ export class DriveService {
           mimeType,
           type,
           folderId: folderId || null,
+          userId,
           telegramMsgId: message.id,
           telegramFileId: fileInfo?.fileId || null,
           telegramAccessHash: fileInfo?.accessHash || null,
@@ -232,7 +242,7 @@ export class DriveService {
         },
       });
 
-      this.logger.log(`File "${fileName}" uploaded successfully. Telegram msgId=${message.id}, DB id=${file.id}`);
+      this.logger.log(`File "${fileName}" uploaded successfully. Telegram msgId=${message.id}, DB id=${file.id}, userId=${userId}`);
 
       return {
         ...file,
@@ -254,16 +264,19 @@ export class DriveService {
    */
   async streamFile(
     fileId: string,
+    userId: string,
     userPhone: string,
     req: Request,
     res: Response,
     isDownload = false,
   ): Promise<void> {
-    const file = await this.prisma.file.findUnique({ where: { id: fileId } });
+    const file = await this.prisma.file.findFirst({
+      where: { id: fileId, userId },
+    });
     if (!file) throw new NotFoundException('File not found');
 
     if (file.telegramMsgId <= 0) {
-      throw new NotFoundException('File has no Telegram reference. It may have been uploaded before Telegram integration.');
+      throw new NotFoundException('File has no Telegram reference.');
     }
 
     await this.telegramClient.streamMessageMedia(userPhone, file.telegramMsgId, req, res, {
@@ -359,8 +372,8 @@ export class DriveService {
     });
   }
 
-  async moveFile(id: string, folderId: string | null) {
-    const file = await this.prisma.file.findUnique({ where: { id } });
+  async moveFile(userId: string, id: string, folderId: string | null) {
+    const file = await this.prisma.file.findFirst({ where: { id, userId } });
     if (!file) throw new NotFoundException('File not found');
 
     const targetFolderId = folderId === 'root' || !folderId ? null : folderId;
@@ -370,16 +383,16 @@ export class DriveService {
     });
   }
 
-  async moveFiles(ids: string[], folderId: string | null) {
+  async moveFiles(userId: string, ids: string[], folderId: string | null) {
     const targetFolderId = folderId === 'root' || !folderId ? null : folderId;
     return this.prisma.file.updateMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, userId },
       data: { folderId: targetFolderId },
     });
   }
 
-  async toggleStar(id: string) {
-    const file = await this.prisma.file.findUnique({ where: { id } });
+  async toggleStar(userId: string, id: string) {
+    const file = await this.prisma.file.findFirst({ where: { id, userId } });
     if (!file) throw new NotFoundException('File not found');
 
     return this.prisma.file.update({
@@ -388,8 +401,8 @@ export class DriveService {
     });
   }
 
-  async deleteFile(id: string, permanent = false, userPhone?: string) {
-    const file = await this.prisma.file.findUnique({ where: { id } });
+  async deleteFile(userId: string, id: string, permanent = false, userPhone?: string) {
+    const file = await this.prisma.file.findFirst({ where: { id, userId } });
     if (!file) throw new NotFoundException('File not found');
 
     if (permanent) {
@@ -398,7 +411,7 @@ export class DriveService {
         try {
           await this.telegramClient.deleteMessage(userPhone, file.telegramMsgId);
           this.logger.log(`Deleted Telegram message #${file.telegramMsgId} for file "${file.name}"`);
-        } catch (err) {
+        } catch (err: any) {
           this.logger.warn(`Could not delete Telegram message #${file.telegramMsgId}: ${err.message}`);
         }
       }
@@ -411,16 +424,19 @@ export class DriveService {
     });
   }
 
-  async restoreFile(id: string) {
+  async restoreFile(userId: string, id: string) {
+    const file = await this.prisma.file.findFirst({ where: { id, userId } });
+    if (!file) throw new NotFoundException('File not found');
+
     return this.prisma.file.update({
       where: { id },
       data: { isTrashed: false },
     });
   }
 
-  async emptyTrash(userPhone?: string) {
+  async emptyTrash(userId: string, userPhone?: string) {
     const trashedFiles = await this.prisma.file.findMany({
-      where: { isTrashed: true },
+      where: { isTrashed: true, userId },
     });
 
     if (userPhone && trashedFiles.length > 0) {
@@ -432,23 +448,23 @@ export class DriveService {
         try {
           await this.telegramClient.deleteMessages(userPhone, msgIds);
           this.logger.log(`Emptied trash: deleted ${msgIds.length} Telegram messages for ${userPhone}`);
-        } catch (err) {
+        } catch (err: any) {
           this.logger.warn(`Could not delete Telegram messages during empty trash: ${err.message}`);
         }
       }
     }
 
     return this.prisma.file.deleteMany({
-      where: { isTrashed: true },
+      where: { isTrashed: true, userId },
     });
   }
 
-  async deleteFilesBatch(ids: string[], permanent = false, userPhone?: string) {
+  async deleteFilesBatch(userId: string, ids: string[], permanent = false, userPhone?: string) {
     if (!ids.length) return { count: 0 };
 
     if (permanent) {
       const files = await this.prisma.file.findMany({
-        where: { id: { in: ids } },
+        where: { id: { in: ids }, userId },
       });
 
       if (userPhone && files.length > 0) {
@@ -456,36 +472,36 @@ export class DriveService {
         if (msgIds.length > 0) {
           try {
             await this.telegramClient.deleteMessages(userPhone, msgIds);
-          } catch (err) {
+          } catch (err: any) {
             this.logger.warn(`Could not delete Telegram messages during batch delete: ${err.message}`);
           }
         }
       }
 
       return this.prisma.file.deleteMany({
-        where: { id: { in: ids } },
+        where: { id: { in: ids }, userId },
       });
     }
 
     return this.prisma.file.updateMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, userId },
       data: { isTrashed: true },
     });
   }
 
-  async restoreFilesBatch(ids: string[]) {
+  async restoreFilesBatch(userId: string, ids: string[]) {
     if (!ids.length) return { count: 0 };
     return this.prisma.file.updateMany({
-      where: { id: { in: ids } },
+      where: { id: { in: ids }, userId },
       data: { isTrashed: false },
     });
   }
 
-  async getStorageMetrics() {
-    const totalFiles = await this.prisma.file.count({ where: { isTrashed: false } });
-    const trashCount = await this.prisma.file.count({ where: { isTrashed: true } });
+  async getStorageMetrics(userId: string) {
+    const totalFiles = await this.prisma.file.count({ where: { isTrashed: false, userId } });
+    const trashCount = await this.prisma.file.count({ where: { isTrashed: true, userId } });
     const files = await this.prisma.file.findMany({
-      where: { isTrashed: false },
+      where: { isTrashed: false, userId },
       select: { name: true, mimeType: true, size: true, type: true, starred: true },
     });
 
@@ -534,9 +550,9 @@ export class DriveService {
     };
   }
 
-  async downloadBatchZip(ids: string[], userPhone: string, res: Response) {
+  async downloadBatchZip(ids: string[], userId: string, userPhone: string, res: Response) {
     const files = await this.prisma.file.findMany({
-      where: { id: { in: ids }, isTrashed: false },
+      where: { id: { in: ids }, userId, isTrashed: false },
     });
 
     if (!files.length) {

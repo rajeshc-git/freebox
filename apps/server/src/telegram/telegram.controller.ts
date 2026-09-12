@@ -20,24 +20,26 @@ export class TelegramController {
     private readonly jwtService: JwtService,
   ) {}
 
-
-
   /**
-   * Extract user phone from JWT Bearer token or query param.
+   * Extract user ID and phone from JWT Bearer token or query param.
    */
-  private getUserPhone(authHeader?: string, queryToken?: string): string {
+  private getAuthUser(authHeader?: string, queryToken?: string): { userId: string; phone: string } {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
         const token = authHeader.split(' ')[1];
-        const decoded = this.jwtService.verify(token);
-        return decoded.phone;
+        const decoded: any = this.jwtService.verify(token);
+        if (decoded && (decoded.sub || decoded.phone)) {
+          return { userId: decoded.sub, phone: decoded.phone };
+        }
       } catch {}
     }
 
     if (queryToken) {
       try {
-        const decoded = this.jwtService.verify(queryToken);
-        return decoded.phone;
+        const decoded: any = this.jwtService.verify(queryToken);
+        if (decoded && (decoded.sub || decoded.phone)) {
+          return { userId: decoded.sub, phone: decoded.phone };
+        }
       } catch {}
     }
 
@@ -45,13 +47,14 @@ export class TelegramController {
   }
 
   @Get('saved-messages')
-  async getSavedMessages() {
-    return this.telegramService.getSavedMessages();
+  async getSavedMessages(@Headers('authorization') auth?: string) {
+    const { userId } = this.getAuthUser(auth);
+    return this.telegramService.getSavedMessages(userId);
   }
 
   @Get('archived-chats')
   async getArchivedChats(@Headers('authorization') auth?: string) {
-    const phone = this.getUserPhone(auth);
+    const { phone } = this.getAuthUser(auth);
     return this.telegramService.getArchivedChats(phone);
   }
 
@@ -63,7 +66,7 @@ export class TelegramController {
     @Query('offsetId') offsetId?: string,
     @Headers('authorization') auth?: string,
   ) {
-    const phone = this.getUserPhone(auth);
+    const { phone } = this.getAuthUser(auth);
     const parsedLimit = limit ? parseInt(limit, 10) : 60;
     const parsedOffsetId = offsetId ? parseInt(offsetId, 10) : undefined;
     return this.telegramService.getChatMedia(phone, chatId, category, parsedLimit, parsedOffsetId);
@@ -78,7 +81,7 @@ export class TelegramController {
     @Req() req: Request,
     @Res() res: Response,
   ) {
-    const phone = this.getUserPhone(auth, queryToken);
+    const { phone } = this.getAuthUser(auth, queryToken);
     const messageId = parseInt(messageIdStr, 10);
     if (isNaN(messageId)) {
       throw new BadRequestException('Invalid messageId');
@@ -92,8 +95,7 @@ export class TelegramController {
     @Param('chatId') chatId: string,
     @Headers('authorization') auth?: string,
   ) {
-    const phone = this.getUserPhone(auth);
+    const { phone } = this.getAuthUser(auth);
     return this.telegramService.getChatStats(phone, chatId);
   }
 }
-

@@ -1868,19 +1868,21 @@ export const TorrentQueueManager: React.FC<TorrentQueueManagerProps> = ({
               <span style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em' }}>
                 Upload Manager
               </span>
-              <span
-                style={{
-                  fontSize: '0.62rem',
-                  background: isAllDone ? '#d1fae5' : '#e0f2fe',
-                  color: isAllDone ? '#047857' : '#0284c7',
-                  padding: '0.12rem 0.45rem',
-                  borderRadius: 9999,
-                  fontWeight: 800,
-                  letterSpacing: '0.02em',
-                }}
-              >
-                {isAllDone ? 'ALL COMPLETED' : 'MULTI-THREADED'}
-              </span>
+              {isAllDone && (
+                <span
+                  style={{
+                    fontSize: '0.62rem',
+                    background: '#d1fae5',
+                    color: '#047857',
+                    padding: '0.12rem 0.45rem',
+                    borderRadius: 9999,
+                    fontWeight: 800,
+                    letterSpacing: '0.02em',
+                  }}
+                >
+                  ALL COMPLETED
+                </span>
+              )}
             </div>
             <div style={{ fontSize: '0.74rem', color: isAllDone ? '#059669' : '#64748b', marginTop: 1, fontWeight: isAllDone ? 600 : 500 }}>
               {isAllDone
