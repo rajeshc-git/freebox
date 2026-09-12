@@ -795,10 +795,10 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                   </div>
                   <div>
                     <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)', lineHeight: 1.1 }}>
-                      Telegram Storage
+                      Freebox Storage
                     </div>
                     <div style={{ fontSize: '0.66rem', color: 'var(--text-light)' }}>
-                      MTProto Cloud Spool
+                      Secure Cloud
                     </div>
                   </div>
                 </div>
