@@ -1396,3 +1396,13 @@ body {
   border-radius: 50%;
   display: block;
 }
+
+/* Smartphone touch-friendly hold-to-select optimization */
+.drive-file-card,
+.drive-folder-card,
+.list-table-container tr {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: pan-y;
+}

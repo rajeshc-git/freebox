@@ -192,23 +192,73 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
   const longPressTimerRef = useRef<any>(null);
   const isLongPressRef = useRef(false);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const lastLongPressEndedRef = useRef<number>(0);
 
-  const handleFolderTouchStart = (fldId: string) => {
+  const handleItemTouchStart = (type: 'file' | 'folder', id: string, e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
     isLongPressRef.current = false;
-    longPressTimerRef.current = setTimeout(() => {
-      isLongPressRef.current = true;
-      sfx.playClick();
-      setSelectedFolderIds((prev) => (prev.includes(fldId) ? prev.filter((id) => id !== fldId) : [...prev, fldId]));
-    }, 450);
-  };
 
-  const handleFolderTouchEnd = () => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
     }
+
+    // 380ms hold delay for deliberate smartphone long-press selection
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressRef.current = true;
+      lastLongPressEndedRef.current = Date.now();
+      try {
+        if (navigator.vibrate) navigator.vibrate(25);
+      } catch (_) {}
+      sfx.playClick();
+      if (type === 'folder') {
+        setSelectedFolderIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+      } else {
+        setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
+      }
+    }, 380);
   };
 
-  const toggleSelectFolder = (id: string, e?: React.MouseEvent) => {
+  const handleItemTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPosRef.current || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - touchStartPosRef.current.x);
+    const dy = Math.abs(touch.clientY - touchStartPosRef.current.y);
+
+    // If user moves finger > 10px (e.g. scrolling the page on mobile), cancel the hold
+    if (dx > 10 || dy > 10) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    }
+  };
+
+  const handleItemTouchEnd = (e: React.TouchEvent) => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    if (isLongPressRef.current) {
+      lastLongPressEndedRef.current = Date.now();
+      isLongPressRef.current = false;
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    }
+  };
+
+  const handleItemTouchCancel = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    isLongPressRef.current = false;
+  };
+
+  const toggleSelectFolder = (id: string, e?: React.MouseEvent | React.TouchEvent) => {
     if (e) e.stopPropagation();
     sfx.playClick();
     setSelectedFolderIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
@@ -434,8 +484,8 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedIds, selectedFolderIds, files, folders, livePhotoPairs, currentCategory, onPreviewFile, onDeleteFile, onDeleteFolder]);
 
-  const toggleSelect = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const toggleSelect = (id: string, e?: React.MouseEvent | React.TouchEvent) => {
+    if (e) e.stopPropagation();
     sfx.playClick();
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]));
   };
@@ -2019,17 +2069,18 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                       key={fld.id}
                       className="drive-folder-card"
                       onClick={() => {
-                        if (isLongPressRef.current) return;
-                        if (selectedFolderIds.length > 0) {
+                        if (isLongPressRef.current || Date.now() - lastLongPressEndedRef.current < 400) return;
+                        if (selectedFolderIds.length > 0 || selectedIds.length > 0) {
                           toggleSelectFolder(fld.id);
                           return;
                         }
                         sfx.playClick();
                         onNavigateFolder(fld.id);
                       }}
-                      onTouchStart={() => handleFolderTouchStart(fld.id)}
-                      onTouchEnd={handleFolderTouchEnd}
-                      onTouchMove={handleFolderTouchEnd}
+                      onTouchStart={(e) => handleItemTouchStart('folder', fld.id, e)}
+                      onTouchEnd={handleItemTouchEnd}
+                      onTouchMove={handleItemTouchMove}
+                      onTouchCancel={handleItemTouchCancel}
                       onDragOver={(e) => {
                         e.preventDefault();
                         setDragTargetFolderId(fld.id);
@@ -2233,6 +2284,10 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                         setDraggingFileId(file.id);
                       }}
                       onDragEnd={() => setDraggingFileId(null)}
+                      onTouchStart={(e) => handleItemTouchStart('file', file.id, e)}
+                      onTouchEnd={handleItemTouchEnd}
+                      onTouchMove={handleItemTouchMove}
+                      onTouchCancel={handleItemTouchCancel}
                       style={{
                         background: '#fff',
                         border: isSelected ? '2px solid var(--tg-blue)' : '1px solid var(--border-subtle)',
@@ -2249,6 +2304,11 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                       <div
                         className="drive-file-card-preview"
                         onClick={() => {
+                          if (isLongPressRef.current || Date.now() - lastLongPressEndedRef.current < 400) return;
+                          if (selectedIds.length > 0 || selectedFolderIds.length > 0) {
+                            toggleSelect(file.id);
+                            return;
+                          }
                           sfx.playClick();
                           onPreviewFile(file);
                         }}
@@ -2322,6 +2382,11 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                       <div className="drive-file-card-info" style={{ padding: '0.85rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                         <div
                           onClick={() => {
+                            if (isLongPressRef.current || Date.now() - lastLongPressEndedRef.current < 400) return;
+                            if (selectedIds.length > 0 || selectedFolderIds.length > 0) {
+                              toggleSelect(file.id);
+                              return;
+                            }
                             sfx.playClick();
                             onPreviewFile(file);
                           }}
@@ -2515,17 +2580,18 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                         <tr
                           key={`folder-${fld.id}`}
                           onClick={() => {
-                            if (isLongPressRef.current) return;
-                            if (selectedFolderIds.length > 0) {
+                            if (isLongPressRef.current || Date.now() - lastLongPressEndedRef.current < 400) return;
+                            if (selectedFolderIds.length > 0 || selectedIds.length > 0) {
                               toggleSelectFolder(fld.id);
                               return;
                             }
                             sfx.playClick();
                             onNavigateFolder(fld.id);
                           }}
-                          onTouchStart={() => handleFolderTouchStart(fld.id)}
-                          onTouchEnd={handleFolderTouchEnd}
-                          onTouchMove={handleFolderTouchEnd}
+                          onTouchStart={(e) => handleItemTouchStart('folder', fld.id, e)}
+                          onTouchEnd={handleItemTouchEnd}
+                          onTouchMove={handleItemTouchMove}
+                          onTouchCancel={handleItemTouchCancel}
                           style={{
                             borderBottom: '1px solid var(--border-subtle)',
                             fontSize: '0.88rem',
@@ -2591,6 +2657,17 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                             setDraggingFileId(file.id);
                           }}
                           onDragEnd={() => setDraggingFileId(null)}
+                          onTouchStart={(e) => handleItemTouchStart('file', file.id, e)}
+                          onTouchEnd={handleItemTouchEnd}
+                          onTouchMove={handleItemTouchMove}
+                          onTouchCancel={handleItemTouchCancel}
+                          onClick={() => {
+                            if (isLongPressRef.current || Date.now() - lastLongPressEndedRef.current < 400) return;
+                            if (selectedIds.length > 0 || selectedFolderIds.length > 0) {
+                              toggleSelect(file.id);
+                              return;
+                            }
+                          }}
                           style={{
                             borderBottom: '1px solid var(--border-subtle)',
                             fontSize: '0.88rem',
@@ -2609,6 +2686,11 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                           <td
                             style={{ padding: '0.85rem 1.25rem', fontWeight: 600, cursor: 'pointer' }}
                             onClick={() => {
+                              if (isLongPressRef.current || Date.now() - lastLongPressEndedRef.current < 400) return;
+                              if (selectedIds.length > 0 || selectedFolderIds.length > 0) {
+                                toggleSelect(file.id);
+                                return;
+                              }
                               sfx.playClick();
                               onPreviewFile(file);
                             }}
