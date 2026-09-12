@@ -238,48 +238,6 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
   const livePhotosCount = pairedLivePhotoBaseNames.size;
 
-  // Storage Stats Breakdown for Telegram Cloud consumption popup
-  const storageStats = React.useMemo(() => {
-    const activeFiles = files.filter((f) => !f.isTrashed);
-    const trashedFiles = files.filter((f) => f.isTrashed);
-
-    const activeBytes = activeFiles.reduce((sum, f) => sum + (f.size || 0), 0);
-    const trashBytes = trashedFiles.reduce((sum, f) => sum + (f.size || 0), 0);
-    const totalBytes = metrics?.totalBytes ?? activeBytes;
-    const totalFilesCount = metrics?.totalFiles ?? activeFiles.length;
-
-    const images = activeFiles.filter((f) => f.type === 'image');
-    const videos = activeFiles.filter((f) => f.type === 'video');
-    const docs = activeFiles.filter((f) => f.type === 'document');
-    const audio = activeFiles.filter((f) => f.type === 'audio');
-    const archives = activeFiles.filter((f) => f.type === 'archive');
-
-    const imageBytes = images.reduce((sum, f) => sum + (f.size || 0), 0);
-    const videoBytes = videos.reduce((sum, f) => sum + (f.size || 0), 0);
-    const docBytes = docs.reduce((sum, f) => sum + (f.size || 0), 0);
-    const audioBytes = audio.reduce((sum, f) => sum + (f.size || 0), 0);
-    const archiveBytes = archives.reduce((sum, f) => sum + (f.size || 0), 0);
-
-    return {
-      totalBytes,
-      totalFilesCount,
-      activeBytes,
-      trashBytes,
-      trashCount: metrics?.trashCount ?? trashedFiles.length,
-      imageCount: metrics?.categories?.images ?? images.length,
-      imageBytes,
-      videoCount: metrics?.categories?.videos ?? videos.length,
-      videoBytes,
-      docCount: metrics?.categories?.documents ?? docs.length,
-      docBytes,
-      audioCount: metrics?.categories?.audio ?? audio.length,
-      audioBytes,
-      archiveCount: metrics?.categories?.archives ?? archives.length,
-      archiveBytes,
-      starredCount: metrics?.categories?.starred ?? activeFiles.filter((f) => f.starred).length,
-    };
-  }, [files, metrics]);
-
   // Matched Live Photo Pairs (for Live Photos Studio)
   const livePhotoPairs: LivePhotoPair[] = React.useMemo(() => {
     const images: DriveFile[] = [];
@@ -323,6 +281,53 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
     return matched;
   }, [files]);
+
+  // Storage Stats Breakdown for Telegram Cloud consumption popup
+  const storageStats = React.useMemo(() => {
+    const activeFiles = files.filter((f) => !f.isTrashed);
+    const trashedFiles = files.filter((f) => f.isTrashed);
+
+    const activeBytes = activeFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+    const trashBytes = trashedFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+    const totalBytes = metrics?.totalBytes ?? activeBytes;
+    const totalFilesCount = metrics?.totalFiles ?? activeFiles.length;
+
+    const livePhotoBytes = livePhotoPairs.reduce((sum, p) => sum + p.size, 0);
+    const livePhotoCount = metrics?.categories?.live_photo ?? metrics?.livePhotosCount ?? livePhotoPairs.length;
+
+    const images = activeFiles.filter((f) => f.type === 'image');
+    const videos = activeFiles.filter((f) => f.type === 'video');
+    const docs = activeFiles.filter((f) => f.type === 'document');
+    const audio = activeFiles.filter((f) => f.type === 'audio');
+    const archives = activeFiles.filter((f) => f.type === 'archive');
+
+    const imageBytes = images.reduce((sum, f) => sum + (f.size || 0), 0);
+    const videoBytes = videos.reduce((sum, f) => sum + (f.size || 0), 0);
+    const docBytes = docs.reduce((sum, f) => sum + (f.size || 0), 0);
+    const audioBytes = audio.reduce((sum, f) => sum + (f.size || 0), 0);
+    const archiveBytes = archives.reduce((sum, f) => sum + (f.size || 0), 0);
+
+    return {
+      totalBytes,
+      totalFilesCount,
+      activeBytes,
+      trashBytes,
+      trashCount: metrics?.trashCount ?? trashedFiles.length,
+      imageCount: metrics?.categories?.images ?? images.length,
+      imageBytes,
+      livePhotoCount,
+      livePhotoBytes,
+      videoCount: metrics?.categories?.videos ?? videos.length,
+      videoBytes,
+      docCount: metrics?.categories?.documents ?? docs.length,
+      docBytes,
+      audioCount: metrics?.categories?.audio ?? audio.length,
+      audioBytes,
+      archiveCount: metrics?.categories?.archives ?? archives.length,
+      archiveBytes,
+      starredCount: metrics?.categories?.starred ?? activeFiles.filter((f) => f.starred).length,
+    };
+  }, [files, metrics, livePhotoPairs]);
 
   const toggleSelectLivePhotoPair = (pair: LivePhotoPair) => {
     sfx.playClick();
@@ -889,6 +894,15 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                           title={`Photos: ${formatSize(storageStats.imageBytes)}`}
                         />
                       )}
+                      {storageStats.livePhotoBytes > 0 && (
+                        <div
+                          style={{
+                            width: `${(storageStats.livePhotoBytes / storageStats.totalBytes) * 100}%`,
+                            background: '#06b6d4',
+                          }}
+                          title={`Live Photos: ${formatSize(storageStats.livePhotoBytes)}`}
+                        />
+                      )}
                       {storageStats.videoBytes > 0 && (
                         <div
                           style={{
@@ -922,7 +936,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                             width: `${(storageStats.archiveBytes / storageStats.totalBytes) * 100}%`,
                             background: '#ec4899',
                           }}
-                          title={`Archives: ${formatSize(storageStats.archiveBytes)}`}
+                          title={`Others: ${formatSize(storageStats.archiveBytes)}`}
                         />
                       )}
                     </>
@@ -940,11 +954,12 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                   {[
-                    { label: 'Photos', icon: ImageIcon, color: '#0284c7', count: storageStats.imageCount, size: storageStats.imageBytes, catId: 'images' },
-                    { label: 'Videos', icon: Film, color: '#8b5cf6', count: storageStats.videoCount, size: storageStats.videoBytes, catId: 'videos' },
-                    { label: 'Documents', icon: FileText, color: '#10b981', count: storageStats.docCount, size: storageStats.docBytes, catId: 'documents' },
+                    { label: 'Photos', icon: ImageIcon, color: '#0284c7', count: storageStats.imageCount, size: storageStats.imageBytes, catId: 'image' },
+                    { label: 'Live Photos', icon: Sparkles, color: '#06b6d4', count: storageStats.livePhotoCount, size: storageStats.livePhotoBytes, catId: 'live_photo' },
+                    { label: 'Videos', icon: Film, color: '#8b5cf6', count: storageStats.videoCount, size: storageStats.videoBytes, catId: 'video' },
+                    { label: 'Documents', icon: FileText, color: '#10b981', count: storageStats.docCount, size: storageStats.docBytes, catId: 'document' },
                     { label: 'Audio', icon: Music, color: '#f59e0b', count: storageStats.audioCount, size: storageStats.audioBytes, catId: 'audio' },
-                    { label: 'Archives', icon: Archive, color: '#ec4899', count: storageStats.archiveCount, size: storageStats.archiveBytes, catId: 'archives' },
+                    { label: 'Others', icon: Archive, color: '#ec4899', count: storageStats.archiveCount, size: storageStats.archiveBytes, catId: 'archive' },
                   ].map((cat) => (
                     <div
                       key={cat.label}
@@ -978,27 +993,6 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                       </span>
                     </div>
                   ))}
-                </div>
-              </div>
-
-              {/* Status Footer */}
-              <div
-                style={{
-                  paddingTop: '0.5rem',
-                  borderTop: '1px solid var(--border-subtle)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  fontSize: '0.68rem',
-                  color: 'var(--text-light)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                  <ShieldCheck size={13} color="#16a34a" />
-                  <span style={{ color: '#16a34a', fontWeight: 600 }}>Telegram Encrypted</span>
-                </div>
-                <div style={{ fontWeight: 500 }}>
-                  {user?.phone || '+91 FreeBox'}
                 </div>
               </div>
             </div>
