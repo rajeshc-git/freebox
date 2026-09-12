@@ -61,6 +61,24 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('popstate', handlePopState);
   }, [user]);
 
+  // Silently refresh current user profile (including Telegram DP) on load
+  useEffect(() => {
+    const token = localStorage.getItem('freebox_token') || localStorage.getItem('freedisk_token');
+    if (token) {
+      api
+        .getMe()
+        .then((freshUser) => {
+          if (freshUser) {
+            setUser(freshUser);
+            try {
+              localStorage.setItem('freebox_user', JSON.stringify(freshUser));
+            } catch {}
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
   // Real Telegram OTP State
   const [isOtpOpen, setIsOtpOpen] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);

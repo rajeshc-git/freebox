@@ -144,9 +144,14 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
   const [isMobileAddMenuOpen, setIsMobileAddMenuOpen] = useState(false);
   const [isStoragePopupOpen, setIsStoragePopupOpen] = useState(false);
   const [isArchivedChatOpen, setIsArchivedChatOpen] = useState(false);
+  const [avatarImgError, setAvatarImgError] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
   const storagePopupRef = useRef<HTMLDivElement>(null);
   const userProfileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setAvatarImgError(false);
+  }, [user?.photoUrl]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent | TouchEvent) {
@@ -1005,40 +1010,35 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.65rem',
+              gap: '0.7rem',
               cursor: 'pointer',
               flex: 1,
               minWidth: 0,
-              padding: '0.25rem 0.35rem',
-              borderRadius: 10,
+              padding: '0.3rem 0.4rem',
+              borderRadius: 12,
               transition: 'background 0.15s ease, transform 0.15s ease',
             }}
             onMouseEnter={(e) => (e.currentTarget.style.background = '#f1f5f9')}
             onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             title="Click to view Telegram storage usage"
           >
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: '50%',
-                background: isStoragePopupOpen
-                  ? 'linear-gradient(135deg, #0088cc 0%, #00a2ed 100%)'
-                  : 'var(--tg-blue)',
-                color: '#fff',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 700,
-                fontSize: '0.84rem',
-                boxShadow: isStoragePopupOpen
-                  ? '0 0 0 2.5px rgba(36, 129, 204, 0.4), 0 2px 8px rgba(36, 129, 204, 0.3)'
-                  : '0 2px 6px rgba(36, 129, 204, 0.25)',
-                transition: 'all 0.2s ease',
-                flexShrink: 0,
-              }}
-            >
-              {user?.avatar || 'FD'}
+            {/* Orbiting Radiant Gradient Ring Avatar */}
+            <div className="avatar-orbit-wrapper">
+              <div className={`avatar-orbit-ring ${isStoragePopupOpen ? 'active' : ''}`} />
+              <div className="avatar-orbit-inner">
+                {user?.photoUrl && !avatarImgError ? (
+                  <img
+                    src={user.photoUrl}
+                    alt={user.name || 'Profile'}
+                    className="avatar-orbit-img"
+                    onError={() => setAvatarImgError(true)}
+                  />
+                ) : (
+                  <div className="avatar-orbit-content">
+                    {user?.avatar || 'TU'}
+                  </div>
+                )}
+              </div>
             </div>
             <div style={{ minWidth: 0, flex: 1 }}>
               <div

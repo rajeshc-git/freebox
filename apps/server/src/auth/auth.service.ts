@@ -172,6 +172,17 @@ export class AuthService {
         'Telegram User';
       const avatarText = tgUser?.firstName ? tgUser.firstName.slice(0, 2).toUpperCase() : 'TU';
 
+      // Attempt to download Telegram profile picture (small thumbnail)
+      let photoUrl: string | undefined = undefined;
+      try {
+        const photoBuf = await pending.client.downloadProfilePhoto('me', { isBig: false });
+        if (photoBuf && Buffer.isBuffer(photoBuf) && photoBuf.length > 0) {
+          photoUrl = `data:image/jpeg;base64,${photoBuf.toString('base64')}`;
+        }
+      } catch (photoErr) {
+        this.logger.debug(`No Telegram profile photo found or error downloading DP: ${photoErr}`);
+      }
+
       // Save user MTProto session string for future operations
       const sessionString = String((pending.client.session as any).save?.() || '');
       if (sessionString) {
@@ -184,11 +195,13 @@ export class AuthService {
         update: {
           name: fullName,
           avatar: avatarText,
+          ...(photoUrl ? { photoUrl } : {}),
         },
         create: {
           phone: cleanPhone,
           name: fullName,
           avatar: avatarText,
+          photoUrl: photoUrl || null,
         },
       });
 
@@ -224,9 +237,39 @@ export class AuthService {
   }
 
   async getMe(userId: string) {
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
+    if (!user) return null;
+
+    // If user doesn't have photoUrl yet, attempt a one-time lazy background fetch if session is in Redis
+    if (!user.photoUrl) {
+      try {
+        const sessionString = await this.redis.get(`tg_session:${user.phone}`);
+        if (sessionString && this.apiId && this.apiHash) {
+          const client = new TelegramClient(new StringSession(sessionString), this.apiId, this.apiHash, {
+            useWSS: true,
+            connectionRetries: 2,
+            timeout: 5000,
+          });
+          await client.connect();
+          const photoBuf = await client.downloadProfilePhoto('me', { isBig: false });
+          await client.disconnect().catch(() => {});
+          if (photoBuf && Buffer.isBuffer(photoBuf) && photoBuf.length > 0) {
+            const photoUrl = `data:image/jpeg;base64,${photoBuf.toString('base64')}`;
+            const updatedUser = await this.prisma.user.update({
+              where: { id: userId },
+              data: { photoUrl },
+            });
+            return updatedUser;
+          }
+        }
+      } catch {
+        // Silently continue with existing user record
+      }
+    }
+
+    return user;
   }
 
   async recordAndGetVisitorCount(clientIp: string, userAgent = ''): Promise<{ count: number }> {

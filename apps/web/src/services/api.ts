@@ -64,6 +64,16 @@ export const api = {
     return data;
   },
 
+  async getMe(): Promise<User> {
+    const res = await fetch(`${API_BASE}/auth/me`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      throw new Error('Failed to fetch user profile');
+    }
+    return res.json();
+  },
+
   // Folders
   async getFolders(parentId?: string | null): Promise<Folder[]> {
     const url = parentId !== undefined ? `${API_BASE}/drive/folders?parentId=${parentId || 'root'}` : `${API_BASE}/drive/folders`;

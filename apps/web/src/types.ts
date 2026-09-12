@@ -3,6 +3,7 @@ export interface User {
   phone: string;
   name: string;
   avatar: string;
+  photoUrl?: string | null;
 }
 
 export interface Folder {

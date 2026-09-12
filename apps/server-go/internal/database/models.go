@@ -90,6 +90,7 @@ type User struct {
 	Phone     string       `gorm:"column:phone;uniqueIndex" json:"phone"`
 	Name      string       `gorm:"column:name;default:'Telegram User'" json:"name"`
 	Avatar    string       `gorm:"column:avatar;default:'TU'" json:"avatar"`
+	PhotoURL  *string      `gorm:"column:photoUrl" json:"photoUrl,omitempty"`
 	CreatedAt FlexibleTime `gorm:"column:createdAt" json:"createdAt"`
 	UpdatedAt FlexibleTime `gorm:"column:updatedAt" json:"updatedAt"`
 

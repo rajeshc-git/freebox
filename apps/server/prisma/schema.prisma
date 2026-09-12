@@ -12,6 +12,7 @@ model User {
   phone       String    @unique
   name        String    @default("Telegram User")
   avatar      String    @default("TU")
+  photoUrl    String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   folders     Folder[]
