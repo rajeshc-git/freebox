@@ -54,6 +54,14 @@ export interface StorageMetrics {
     trash?: number;
     live_photo?: number;
   };
+  categoryBytes?: {
+    images: number;
+    live_photo?: number;
+    videos: number;
+    documents: number;
+    audio: number;
+    archives: number;
+  };
 }
 
 export interface Country {

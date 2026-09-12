@@ -269,15 +269,9 @@ func (h *Handler) GetStorageMetrics(c *gin.Context) {
 
 	var totalBytes int64
 	var trashCount int64
-	imagesCount := int64(0)
-	videosCount := int64(0)
-	documentsCount := int64(0)
-	audioCount := int64(0)
-	archivesCount := int64(0)
-	starredCount := int64(0)
 
-	images := make(map[string]bool)
-	videos := make(map[string]bool)
+	imagesMap := make(map[string]int64)
+	videosMap := make(map[string]int64)
 
 	for _, f := range files {
 		if f.IsTrashed {
@@ -285,46 +279,70 @@ func (h *Handler) GetStorageMetrics(c *gin.Context) {
 			continue
 		}
 		totalBytes += f.Size
+
+		ext := strings.ToLower(filepath.Ext(f.Name))
+		base := strings.ToLower(strings.TrimSuffix(f.Name, ext))
+		if ext == ".heic" || ext == ".jpg" || ext == ".jpeg" || ext == ".png" || strings.HasPrefix(f.MimeType, "image/") {
+			imagesMap[base] = f.Size
+		}
+		if ext == ".mov" || ext == ".mp4" || strings.HasPrefix(f.MimeType, "video/") {
+			videosMap[base] = f.Size
+		}
+	}
+
+	pairedBaseNames := make(map[string]bool)
+	var livePhotoBytes int64
+	for b, imgSize := range imagesMap {
+		if vidSize, exists := videosMap[b]; exists {
+			pairedBaseNames[b] = true
+			livePhotoBytes += (imgSize + vidSize)
+		}
+	}
+	livePhotosCount := len(pairedBaseNames)
+
+	var imagesCount, videosCount, documentsCount, audioCount, archivesCount, starredCount int64
+	var imagesBytes, videosBytes, documentsBytes, audioBytes, archivesBytes int64
+
+	for _, f := range files {
+		if f.IsTrashed {
+			continue
+		}
+
+		ext := strings.ToLower(filepath.Ext(f.Name))
+		base := strings.ToLower(strings.TrimSuffix(f.Name, ext))
+		if pairedBaseNames[base] {
+			continue
+		}
+
 		if f.Starred {
 			starredCount++
 		}
 		switch f.Type {
 		case "image":
 			imagesCount++
+			imagesBytes += f.Size
 		case "video":
 			videosCount++
+			videosBytes += f.Size
 		case "document":
 			documentsCount++
+			documentsBytes += f.Size
 		case "audio":
 			audioCount++
+			audioBytes += f.Size
 		case "archive":
 			archivesCount++
-		}
-
-		ext := strings.ToLower(filepath.Ext(f.Name))
-		base := strings.ToLower(strings.TrimSuffix(f.Name, ext))
-		if ext == ".heic" || ext == ".jpg" || ext == ".jpeg" || ext == ".png" || strings.HasPrefix(f.MimeType, "image/") {
-			images[base] = true
-		}
-		if ext == ".mov" || ext == ".mp4" || strings.HasPrefix(f.MimeType, "video/") {
-			videos[base] = true
+			archivesBytes += f.Size
 		}
 	}
 
-	livePhotosCount := 0
-	for b := range images {
-		if videos[b] {
-			livePhotosCount++
-		}
-	}
-
-	nonLiveFiles := int64(len(files)) - trashCount - int64(livePhotosCount)
-	if nonLiveFiles < 0 {
-		nonLiveFiles = 0
+	totalItemsCount := int64(len(files)) - trashCount - int64(livePhotosCount)
+	if totalItemsCount < 0 {
+		totalItemsCount = 0
 	}
 
 	metrics := database.StorageMetrics{
-		TotalFiles:      nonLiveFiles,
+		TotalFiles:      totalItemsCount,
 		TotalBytes:      totalBytes,
 		TrashCount:      trashCount,
 		LivePhotosCount: livePhotosCount,
@@ -333,13 +351,21 @@ func (h *Handler) GetStorageMetrics(c *gin.Context) {
 		Provider:        "Telegram MTProto Cloud",
 		Categories: map[string]int64{
 			"images":     imagesCount,
+			"live_photo": int64(livePhotosCount),
 			"videos":     videosCount,
 			"documents":  documentsCount,
 			"audio":      audioCount,
 			"archives":   archivesCount,
 			"starred":    starredCount,
 			"trash":      trashCount,
-			"live_photo": int64(livePhotosCount),
+		},
+		CategoryBytes: map[string]int64{
+			"images":     imagesBytes,
+			"live_photo": livePhotoBytes,
+			"videos":     videosBytes,
+			"documents":  documentsBytes,
+			"audio":      audioBytes,
+			"archives":   archivesBytes,
 		},
 	}
 

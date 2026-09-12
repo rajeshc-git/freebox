@@ -161,4 +161,5 @@ type StorageMetrics struct {
 	IsUnlimited      bool             `json:"isUnlimited"`
 	Provider         string           `json:"provider"`
 	Categories       map[string]int64 `json:"categories"`
+	CategoryBytes    map[string]int64 `json:"categoryBytes"`
 }

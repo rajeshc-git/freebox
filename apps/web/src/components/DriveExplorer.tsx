@@ -284,48 +284,46 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
 
   // Storage Stats Breakdown for Telegram Cloud consumption popup
   const storageStats = React.useMemo(() => {
+    const totalBytes = metrics?.totalBytes ?? 0;
+    const totalFilesCount = metrics?.totalFiles ?? 0;
+
+    const imageCount = metrics?.categories?.images ?? 0;
+    const livePhotoCount = metrics?.categories?.live_photo ?? metrics?.livePhotosCount ?? 0;
+    const videoCount = metrics?.categories?.videos ?? 0;
+    const docCount = metrics?.categories?.documents ?? 0;
+    const audioCount = metrics?.categories?.audio ?? 0;
+    const archiveCount = metrics?.categories?.archives ?? 0;
+    const trashCount = metrics?.categories?.trash ?? metrics?.trashCount ?? 0;
+    const starredCount = metrics?.categories?.starred ?? 0;
+
+    // Use backend-computed global category bytes (with fallback to client-side pairs/files if metrics not yet loaded)
     const activeFiles = files.filter((f) => !f.isTrashed);
-    const trashedFiles = files.filter((f) => f.isTrashed);
-
     const activeBytes = activeFiles.reduce((sum, f) => sum + (f.size || 0), 0);
-    const trashBytes = trashedFiles.reduce((sum, f) => sum + (f.size || 0), 0);
-    const totalBytes = metrics?.totalBytes ?? activeBytes;
-    const totalFilesCount = metrics?.totalFiles ?? activeFiles.length;
 
-    const livePhotoBytes = livePhotoPairs.reduce((sum, p) => sum + p.size, 0);
-    const livePhotoCount = metrics?.categories?.live_photo ?? metrics?.livePhotosCount ?? livePhotoPairs.length;
-
-    const images = activeFiles.filter((f) => f.type === 'image');
-    const videos = activeFiles.filter((f) => f.type === 'video');
-    const docs = activeFiles.filter((f) => f.type === 'document');
-    const audio = activeFiles.filter((f) => f.type === 'audio');
-    const archives = activeFiles.filter((f) => f.type === 'archive');
-
-    const imageBytes = images.reduce((sum, f) => sum + (f.size || 0), 0);
-    const videoBytes = videos.reduce((sum, f) => sum + (f.size || 0), 0);
-    const docBytes = docs.reduce((sum, f) => sum + (f.size || 0), 0);
-    const audioBytes = audio.reduce((sum, f) => sum + (f.size || 0), 0);
-    const archiveBytes = archives.reduce((sum, f) => sum + (f.size || 0), 0);
+    const imageBytes = metrics?.categoryBytes?.images ?? activeFiles.filter((f) => f.type === 'image').reduce((sum, f) => sum + (f.size || 0), 0);
+    const livePhotoBytes = metrics?.categoryBytes?.live_photo ?? livePhotoPairs.reduce((sum, p) => sum + p.size, 0);
+    const videoBytes = metrics?.categoryBytes?.videos ?? activeFiles.filter((f) => f.type === 'video').reduce((sum, f) => sum + (f.size || 0), 0);
+    const docBytes = metrics?.categoryBytes?.documents ?? activeFiles.filter((f) => f.type === 'document').reduce((sum, f) => sum + (f.size || 0), 0);
+    const audioBytes = metrics?.categoryBytes?.audio ?? activeFiles.filter((f) => f.type === 'audio').reduce((sum, f) => sum + (f.size || 0), 0);
+    const archiveBytes = metrics?.categoryBytes?.archives ?? activeFiles.filter((f) => f.type === 'archive').reduce((sum, f) => sum + (f.size || 0), 0);
 
     return {
-      totalBytes,
-      totalFilesCount,
-      activeBytes,
-      trashBytes,
-      trashCount: metrics?.trashCount ?? trashedFiles.length,
-      imageCount: metrics?.categories?.images ?? images.length,
+      totalBytes: totalBytes || activeBytes,
+      totalFilesCount: totalFilesCount || activeFiles.length,
+      trashCount,
+      starredCount,
+      imageCount,
       imageBytes,
       livePhotoCount,
       livePhotoBytes,
-      videoCount: metrics?.categories?.videos ?? videos.length,
+      videoCount,
       videoBytes,
-      docCount: metrics?.categories?.documents ?? docs.length,
+      docCount,
       docBytes,
-      audioCount: metrics?.categories?.audio ?? audio.length,
+      audioCount,
       audioBytes,
-      archiveCount: metrics?.categories?.archives ?? archives.length,
+      archiveCount,
       archiveBytes,
-      starredCount: metrics?.categories?.starred ?? activeFiles.filter((f) => f.starred).length,
     };
   }, [files, metrics, livePhotoPairs]);
 
