@@ -95,8 +95,8 @@ export class DriveService {
       } else if (query.nav === 'recent') {
         // order by desc below without folder constraint
       } else {
-        // In regular explorer navigation, if not performing a global search:
-        if (!query.search) {
+        // In regular explorer navigation, if not performing a global search or category filter:
+        if (!query.search && (!query.category || query.category === 'all')) {
           const targetFolderId =
             query.folderId === 'root' || query.folderId === 'null' || !query.folderId
               ? null
@@ -109,7 +109,6 @@ export class DriveService {
     if (query.category && query.category !== 'all') {
       if (query.category === 'live_photo') {
         where.type = { in: ['image', 'video'] };
-        delete where.folderId;
       } else {
         where.type = query.category;
       }

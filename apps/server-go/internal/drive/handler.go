@@ -186,7 +186,7 @@ func (h *Handler) GetFiles(c *gin.Context) {
 		} else if nav == "recent" {
 			// No folder restriction
 		} else {
-			if search == "" {
+			if search == "" && (category == "" || category == "all") {
 				if folderID == "root" || folderID == "null" || folderID == "" {
 					query = query.Where("folderId IS NULL")
 				} else {

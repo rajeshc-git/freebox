@@ -1945,8 +1945,8 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           {/* Skeleton loading state while changing folders, categories, or navigating */}
           {loading ? (
             <div style={{ width: '100%' }}>
-              {/* Folders Skeleton (if in 'all' category) */}
-              {currentCategory === 'all' && !searchQuery && currentNav !== 'trash' && (
+              {/* Folders Skeleton (if in 'all' category and 'all' nav) */}
+              {currentCategory === 'all' && !searchQuery && currentNav === 'all' && (
                 <div style={{ marginBottom: '2rem' }}>
                   <div style={{ height: 16, width: 110, marginBottom: '1rem' }} className="skeleton-box" />
                   <div className="drive-folders-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
@@ -2042,7 +2042,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
           ) : (
             <>
               {/* Folders Section in Grid View */}
-              {currentFolders.length > 0 && currentCategory === 'all' && !searchQuery && currentNav !== 'trash' && viewMode === 'grid' && (
+              {currentFolders.length > 0 && currentCategory === 'all' && !searchQuery && currentNav === 'all' && viewMode === 'grid' && (
             <div style={{ marginBottom: '2rem' }}>
               <div
                 style={{
@@ -2199,7 +2199,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                 justifyContent: 'space-between',
               }}
             >
-              <span>{currentNav === 'trash' ? `Trash Items (${displayedFiles.length})` : `Files (${displayedFiles.length})`}</span>
+              <span>{currentNav === 'trash' ? `Trash Items (${displayedFiles.length})` : currentNav === 'starred' ? `Starred Files (${displayedFiles.length})` : currentNav === 'recent' ? `Recent Files (${displayedFiles.length})` : `Files (${displayedFiles.length})`}</span>
             </div>
 
             {displayedFiles.length === 0 ? (
@@ -2235,6 +2235,30 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                     </h4>
                     <p style={{ fontSize: '0.88rem' }}>
                       Items moved to trash will appear here. You can restore them or empty trash anytime.
+                    </p>
+                  </>
+                ) : currentNav === 'starred' ? (
+                  <>
+                    <div
+                      style={{
+                        width: 64,
+                        height: 64,
+                        borderRadius: '50%',
+                        background: '#fffbeb',
+                        color: '#f59e0b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 1.25rem',
+                      }}
+                    >
+                      <Star size={32} fill="#f59e0b" color="#f59e0b" />
+                    </div>
+                    <h4 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.5rem' }}>
+                      No Starred Files
+                    </h4>
+                    <p style={{ fontSize: '0.88rem' }}>
+                      Click the star icon on any file to quickly access it here.
                     </p>
                   </>
                 ) : (
@@ -2574,7 +2598,7 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                   </thead>
                   <tbody>
                     {/* Folders in List View (Google Drive / iCloud style) */}
-                    {currentFolders.length > 0 && currentCategory === 'all' && !searchQuery && currentNav !== 'trash' && currentFolders.map((fld) => {
+                    {currentFolders.length > 0 && currentCategory === 'all' && !searchQuery && currentNav === 'all' && currentFolders.map((fld) => {
                       const isFolderSelected = selectedFolderIds.includes(fld.id);
                       return (
                         <tr
