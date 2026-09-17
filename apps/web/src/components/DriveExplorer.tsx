@@ -2793,6 +2793,17 @@ export const DriveExplorer: React.FC<DriveExplorerProps> = ({
                               ) : (
                                 <>
                                   <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      sfx.playClick();
+                                      onToggleStar(file.id);
+                                    }}
+                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: file.starred ? '#f59e0b' : 'var(--text-muted)' }}
+                                    title={file.starred ? 'Unstar' : 'Star'}
+                                  >
+                                    <Star size={16} color={file.starred ? '#f59e0b' : 'var(--text-muted)'} fill={file.starred ? '#f59e0b' : 'none'} />
+                                  </button>
+                                  <button
                                     onClick={() => {
                                       sfx.playClick();
                                       onPreviewFile(file);

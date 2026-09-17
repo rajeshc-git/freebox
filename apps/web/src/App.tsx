@@ -136,10 +136,11 @@ export const App: React.FC = () => {
     folderId = currentFolderIdRef.current,
     category = currentCategoryRef.current,
     search = searchQueryRef.current,
-    nav = currentNavRef.current
+    nav = currentNavRef.current,
+    silent = false
   ) => {
     const reqId = ++driveReqCount.current;
-    setIsLoadingDrive(true);
+    if (!silent) setIsLoadingDrive(true);
     try {
       const [fetchedFolders, fetchedFiles, fetchedMetrics] = await Promise.all([
         api.getFolders(),
@@ -154,7 +155,7 @@ export const App: React.FC = () => {
     } catch (err) {
       console.error('Failed to load drive data', err);
     } finally {
-      if (reqId === driveReqCount.current) {
+      if (!silent && reqId === driveReqCount.current) {
         setIsLoadingDrive(false);
       }
     }
@@ -674,8 +675,47 @@ export const App: React.FC = () => {
   };
 
   const handleToggleStar = async (id: string) => {
-    await api.toggleStar(id);
-    loadDriveData();
+    let targetStarred = false;
+    let found = false;
+
+    // 1. Instant optimistic state update (0ms latency, zero skeleton flash)
+    setFiles((prevFiles) =>
+      prevFiles
+        .map((f) => {
+          if (f.id === id) {
+            found = true;
+            targetStarred = !f.starred;
+            return { ...f, starred: targetStarred };
+          }
+          return f;
+        })
+        .filter((f) => (currentNavRef.current === 'starred' ? f.starred : true))
+    );
+
+    if (!found) return;
+
+    // 2. Optimistically update metrics badge
+    setMetrics((prev) => {
+      if (!prev) return prev;
+      const currentStarred = prev.categories?.starred ?? 0;
+      const newStarred = targetStarred ? currentStarred + 1 : Math.max(0, currentStarred - 1);
+      return {
+        ...prev,
+        categories: {
+          ...prev.categories,
+          starred: newStarred,
+        },
+      };
+    });
+
+    // 3. Background network call with silent rollback on failure
+    try {
+      await api.toggleStar(id);
+    } catch (err) {
+      console.error('Failed to toggle star', err);
+      // Revert silently on network failure
+      loadDriveData(undefined, undefined, undefined, undefined, true);
+    }
   };
 
   const handleDeleteFile = async (id: string, permanent: boolean = false) => {
